@@ -23,8 +23,8 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
-    options.Configuration = "localhost:6379"; // TODO: вынести в appsettings
-    options.InstanceName = "Orders_";
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = builder.Configuration["RedisOptions:InstanceName"];
 });
 
 var app = builder.Build();
@@ -40,9 +40,8 @@ if (app.Environment.IsDevelopment())
 }
 
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
+
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

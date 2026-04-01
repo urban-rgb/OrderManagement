@@ -13,6 +13,6 @@ public class AppDbContext : DbContext
     {
         modelBuilder.Entity<Order>()
             .Property(o => o.Version)
-            .IsRowVersion(); //TODO concurrency exception!!
+            .IsRowVersion();
     }
 }

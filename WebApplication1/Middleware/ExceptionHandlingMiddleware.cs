@@ -1,8 +1,9 @@
-﻿using WebApplication1.Domain;
+﻿using Microsoft.EntityFrameworkCore;
+using WebApplication1.Domain;
 
 namespace WebApplication1.Middleware;
 
-public class ExceptionHandlingMiddleware(RequestDelegate next)
+public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context)
     {
@@ -12,6 +13,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next)
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "An error occurred: {Message}", ex.Message);
             await HandleExceptionAsync(context, ex);
         }
     }
@@ -21,7 +23,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next)
         var code = exception switch
         {
             KeyNotFoundDomainException => StatusCodes.Status404NotFound,
-            ConflictDomainException => StatusCodes.Status409Conflict,
+            ConflictDomainException or DbUpdateConcurrencyException => StatusCodes.Status409Conflict,
             DomainException => StatusCodes.Status400BadRequest,
             _ => StatusCodes.Status500InternalServerError
         };
@@ -29,6 +31,10 @@ public class ExceptionHandlingMiddleware(RequestDelegate next)
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = code;
 
-        return context.Response.WriteAsJsonAsync(new { error = exception.Message });
+        var message = exception is DbUpdateConcurrencyException
+            ? "Data has been modified by another user. Please refresh."
+            : exception.Message;
+
+        return context.Response.WriteAsJsonAsync(new { error = message });
     }
 }

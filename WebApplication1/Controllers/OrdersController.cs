@@ -22,9 +22,14 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<OrderResponse>>> GetList([FromQuery] int page = 1, [FromQuery] int limit = 10)
+    public async Task<ActionResult<IEnumerable<OrderResponse>>> GetList(
+            [FromQuery] Guid? userId,
+            [FromQuery] string? sortBy,
+            [FromQuery] bool isDescending = true,
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 10)
     {
-        return Ok(await orderService.GetOrdersAsync(page, limit));
+        return Ok(await orderService.GetOrdersAsync(page, limit, userId, sortBy, isDescending));
     }
 
     [HttpPatch("{id:guid}/address")]
