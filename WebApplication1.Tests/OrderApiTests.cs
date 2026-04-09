@@ -10,14 +10,14 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
 
     public OrderApiTests(WebApplicationFactory<Program> factory)
     {
-        client = factory.CreateClient();
+        client = factory.CreateClient(); // virtual browser
     }
 
     [Fact]
     public async Task CreateOrder_NegativeAmount_ReturnsError()
     {
         // Arrange
-        var badRequest = new CreateOrderRequest("Товар", "Адрес", -10m);
+        var badRequest = new CreateOrderRequest("Item", "Adress", -10m);
 
         // Act
         var response = await client.PostAsJsonAsync("/api/orders", badRequest);

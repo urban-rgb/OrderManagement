@@ -3,7 +3,11 @@ using Xunit;
 using WebApplication1.Domain;
 using WebApplication1.Services;
 using Microsoft.Extensions.Caching.Distributed;
+using WebApplication1.Domain.Exceptions;
 
+// TODO добавить побольше тестов на каждый из методов
+// попробовать сделать процент покрытия 50%+
+// TODO развернуть GitHub Actions
 public class OrderServiceTests
 {
     [Fact]

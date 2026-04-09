@@ -16,9 +16,9 @@ builder.Services.AddSwaggerGen();
 // DataBase
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Configuration строки вынести в соответственный файл
 
 // Layers registration
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddStackExchangeRedisCache(options =>
@@ -39,8 +39,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-
-// app.UseHttpsRedirection();
+// [x] TODO попробовать вернуть
+app.UseHttpsRedirection();
 
 app.UseAuthorization();
 app.MapControllers();

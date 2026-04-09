@@ -2,6 +2,7 @@
 
 namespace WebApplication1.Services.DTOs;
 
+// [x] TODO record vs class or structure + избегание алокацийx
 public record CreateOrderRequest(
     [Required]
     Guid UserId,

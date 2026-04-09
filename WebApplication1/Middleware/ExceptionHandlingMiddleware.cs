@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using WebApplication1.Domain;
+using WebApplication1.Domain.Exceptions;
 
 namespace WebApplication1.Middleware;
 

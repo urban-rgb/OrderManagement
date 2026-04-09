@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿/*using Microsoft.EntityFrameworkCore;
 using WebApplication1.Domain;
 
 namespace WebApplication1.Data;
@@ -39,4 +39,4 @@ public class OrderRepository(AppDbContext context) : IOrderRepository
         context.Orders.Update(order);
         await context.SaveChangesAsync();
     }
-}
+}*/

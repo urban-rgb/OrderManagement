@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using WebApplication1.Domain;
 using WebApplication1.Services;
 using WebApplication1.Services.DTOs;
 
@@ -11,14 +13,22 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<OrderResponse>> Create(CreateOrderRequest request)
     {
-        var response = await orderService.CreateOrderAsync(request);
-        return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+        var result = await orderService.CreateOrderAsync(request);
+
+        if (result.IsSuccess)
+        {
+            return HandleResult(result);
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
+
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<OrderResponse>> GetById(Guid id)
     {
-        return Ok(await orderService.GetOrderAsync(id));
+        var result = await orderService.GetOrderAsync(id);
+        return HandleResult(result);
     }
 
     [HttpGet]
@@ -29,20 +39,38 @@ public class OrdersController(IOrderService orderService) : ControllerBase
             [FromQuery] int page = 1,
             [FromQuery] int limit = 10)
     {
-        return Ok(await orderService.GetOrdersAsync(page, limit, userId, sortBy, isDescending));
+        var result = await orderService.GetOrdersAsync(page, limit, userId, sortBy, isDescending);
+        return HandleResult(result);
     }
 
     [HttpPatch("{id:guid}/address")]
-    public async Task<IActionResult> UpdateAddress(Guid id, [FromBody] string newAddress)
+    public async Task<IActionResult> UpdateAddress(Guid id, [FromBody] UpdateOrderAddressRequest request)
     {
-        await orderService.UpdateAddressAsync(id, newAddress);
-        return NoContent();
+        var result = await orderService.UpdateAddressAsync(id, request);
+        return HandleResult(result);
     }
 
     [HttpPost("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid id)
     {
-        await orderService.CancelOrderAsync(id);
-        return Ok();
+        var result = await orderService.CancelOrderAsync(id);
+        return HandleResult(result);
+    }
+
+
+    private ActionResult HandleResult<T>(Result<T> result)
+    {
+        if (result.IsSuccess)
+        {
+            return result.Value is bool || result.Value == null ? NoContent() : Ok(result.Value);
+        }
+
+        return result.ErrorType switch
+        {
+            ErrorType.NotFound => NotFound(new { error = result.ErrorMessage }),
+            ErrorType.Conflict => Conflict(new { error = result.ErrorMessage }),
+            ErrorType.Validation => BadRequest(new { error = result.ErrorMessage }),
+            _ => StatusCode(500, new { error = result.ErrorMessage })
+        };
     }
 }
