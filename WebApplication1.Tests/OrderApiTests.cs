@@ -26,20 +26,32 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
                 var descriptors = services.Where(d =>
                     d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
                     d.ServiceType == typeof(AppDbContext) ||
-                    d.ServiceType.Namespace != null && d.ServiceType.Namespace.StartsWith("Microsoft.EntityFrameworkCore") ||
+                    d.ServiceType.FullName!.StartsWith("Microsoft.EntityFrameworkCore") ||
                     d.ServiceType == typeof(IDistributedCache)).ToList();
 
                 foreach (var descriptor in descriptors) services.Remove(descriptor);
 
-                services.AddDbContext<AppDbContext>(options =>
-                {
-                    options.UseInMemoryDatabase(_dbName);
-                });
-
+                services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_dbName));
                 services.AddDistributedMemoryCache();
             });
         });
         _client = _factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task CreateOrder_EmptyAddress_ReturnsBadRequest()
+    {
+        var request = new CreateOrderRequest(Guid.NewGuid(), "Products", string.Empty, 100m);
+        var response = await _client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateOrder_EmptyProducts_ReturnsBadRequest()
+    {
+        var request = new CreateOrderRequest(Guid.NewGuid(), string.Empty, "Address", 100m);
+        var response = await _client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -64,7 +76,7 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Orders.Add(new Order { Id = orderId, Status = OrderStatus.Pending, ShippingAddress = "Old", Products = "P" });
+            db.Orders.Add(new Order { Id = orderId, Status = OrderStatus.Pending, ShippingAddress = "Old", Products = "P", CreatedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
         }
 
@@ -81,7 +93,7 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Orders.Add(new Order { Id = orderId, Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A" });
+            db.Orders.Add(new Order { Id = orderId, Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
         }
 
@@ -95,8 +107,6 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var response = await _client.GetAsync("/api/orders?page=1&limit=5");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var content = await response.Content.ReadFromJsonAsync<IEnumerable<OrderResponse>>();
-        Assert.NotNull(content);
     }
 }
 

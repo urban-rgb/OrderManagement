@@ -19,12 +19,12 @@ public class OrderService(
 
     public async Task<Result<OrderResponse>> GetOrderAsync(Guid id)
     {
-        string cacheKey = $"order:{id}";
-        var cachedOrder = await cache.GetAsync<OrderResponse>(cacheKey);
-        if (cachedOrder != null) return Result<OrderResponse>.Success(cachedOrder);
-
         try
         {
+            string cacheKey = $"order:{id}";
+            var cachedOrder = await cache.GetAsync<OrderResponse>(cacheKey);
+            if (cachedOrder != null) return Result<OrderResponse>.Success(cachedOrder);
+
             var order = await context.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
             if (order == null) return Result<OrderResponse>.Failure("Order not found", ErrorType.NotFound);
 
@@ -34,8 +34,8 @@ public class OrderService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error getting order {Id}", id);
-            return Result<OrderResponse>.Failure("Database error", ErrorType.Failure);
+            logger.LogError(ex, "Error in GetOrderAsync for {Id}", id);
+            return Result<OrderResponse>.Failure("Service failure", ErrorType.Failure);
         }
     }
 
@@ -113,28 +113,28 @@ public class OrderService(
 
     public async Task<Result<IEnumerable<OrderResponse>>> GetOrdersAsync(int page, int limit, Guid? userId = null, string? sortBy = null, bool isDescending = true)
     {
-        var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
-        var cacheKey = $"orders:list:{version}:{userId}:{page}:{limit}:{sortBy}:{isDescending}";
-
-        var cachedData = await cache.GetAsync<IEnumerable<OrderResponse>>(cacheKey);
-        if (cachedData != null) return Result<IEnumerable<OrderResponse>>.Success(cachedData);
-
-        var query = context.Orders.AsQueryable();
-        if (userId.HasValue) query = query.Where(o => o.UserId == userId.Value);
-
-        query = sortBy?.ToLower() switch
-        {
-            "amount" => isDescending ? query.OrderByDescending(o => o.TotalAmount).ThenBy(o => o.Id) : query.OrderBy(o => o.TotalAmount).ThenBy(o => o.Id),
-            "status" => isDescending ? query.OrderByDescending(o => o.Status).ThenBy(o => o.Id) : query.OrderBy(o => o.Status).ThenBy(o => o.Id),
-            _ => isDescending ? query.OrderByDescending(o => o.CreatedAt).ThenBy(o => o.Id) : query.OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
-        };
-
         try
         {
-            var entities = await query.Skip((page - 1) * limit).Take(limit).ToListAsync();
-            var response = mapper.Map<List<OrderResponse>>(entities);
+            var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
+            var cacheKey = $"orders:list:{version}:{userId}:{page}:{limit}:{sortBy}:{isDescending}";
 
-            await cache.SetAsync(cacheKey, (IEnumerable<OrderResponse>)response, ListCacheExpiration);
+            var cachedData = await cache.GetAsync<IEnumerable<OrderResponse>>(cacheKey);
+            if (cachedData != null) return Result<IEnumerable<OrderResponse>>.Success(cachedData);
+
+            var query = context.Orders.AsNoTracking();
+            if (userId.HasValue) query = query.Where(o => o.UserId == userId.Value);
+
+            query = sortBy?.ToLower() switch
+            {
+                "amount" => isDescending ? query.OrderByDescending(o => o.TotalAmount) : query.OrderBy(o => o.TotalAmount),
+                "status" => isDescending ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
+                _ => isDescending ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt)
+            };
+
+            var entities = await query.Skip((page - 1) * limit).Take(limit).ToListAsync();
+            var response = mapper.Map<IEnumerable<OrderResponse>>(entities);
+
+            await cache.SetAsync(cacheKey, response, ListCacheExpiration);
             return Result<IEnumerable<OrderResponse>>.Success(response);
         }
         catch (Exception ex)
@@ -146,16 +146,30 @@ public class OrderService(
 
     private async Task ClearCacheAsync(Guid id)
     {
-        await cache.RemoveAsync($"order:{id}");
-        await InvalidateListCacheAsync();
+        try
+        {
+            await cache.RemoveAsync($"order:{id}");
+            await InvalidateListCacheAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to clear cache for order {Id}", id);
+        }
     }
 
     private async Task InvalidateListCacheAsync()
     {
-        var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
-        if (int.TryParse(version, out int v))
-            await cache.SetRawAsync(ListVersionKey, (v + 1).ToString());
-        else
-            await cache.SetRawAsync(ListVersionKey, "1");
+        try
+        {
+            var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
+            if (int.TryParse(version, out int v))
+                await cache.SetRawAsync(ListVersionKey, (v + 1).ToString());
+            else
+                await cache.SetRawAsync(ListVersionKey, "1");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to invalidate list cache");
+        }
     }
 }

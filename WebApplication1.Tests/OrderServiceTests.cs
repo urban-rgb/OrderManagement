@@ -65,6 +65,17 @@ public class OrderServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetOrder_WhenCacheFails_ReturnsFailure()
+    {
+        _cacheMock.Setup(c => c.GetAsync<OrderResponse>(It.IsAny<string>())).ThrowsAsync(new Exception("Redis down"));
+
+        var result = await CreateService().GetOrderAsync(Guid.NewGuid());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorType.Failure, result.ErrorType);
+    }
+
+    [Fact]
     public async Task CreateOrder_ValidRequest_ShouldSaveToDbAndInvalidateList()
     {
         var request = new CreateOrderRequest(Guid.NewGuid(), "Laptop", "NY", 1500m);
@@ -102,6 +113,19 @@ public class OrderServiceTests : IDisposable
     public async Task CancelOrder_WhenStatusIsDelivered_ReturnsConflict()
     {
         var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A" };
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().CancelOrderAsync(order.Id);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorType.Conflict, result.ErrorType);
+    }
+
+    [Fact]
+    public async Task CancelOrder_WhenAlreadyCancelled_ReturnsConflict()
+    {
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Cancelled, Products = "P", ShippingAddress = "A" };
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
@@ -150,9 +174,5 @@ public class OrderServiceTests : IDisposable
         Assert.Equal(5, result.Value!.Count());
     }
 
-    public void Dispose()
-    {
-        _context.Database.EnsureDeleted();
-        _context.Dispose();
-    }
+    public void Dispose() => _context.Dispose();
 }
