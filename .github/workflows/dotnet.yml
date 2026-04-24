@@ -9,11 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-defaults:
+    defaults:
       run:
-        working-directory: ./WebApplication1 
-
+        working-directory: ./WebApplication1
 
     steps:
     - uses: actions/checkout@v4
