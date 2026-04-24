@@ -13,7 +13,6 @@ public class OrderService(
     TimeProvider timeProvider,
     IMapper mapper) : IOrderService
 {
-    private const string ListVersionKey = "orders:list:version";
     private static readonly TimeSpan OrderCacheExpiration = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ListCacheExpiration = TimeSpan.FromMinutes(10);
 
@@ -51,7 +50,7 @@ public class OrderService(
 
             order.ShippingAddress = request.NewAddress;
             await context.SaveChangesAsync();
-            await ClearCacheAsync(id);
+            await ClearCacheAsync(id, order.UserId);
             return Result<bool>.Success(true);
         }
         catch (Exception ex)
@@ -73,7 +72,7 @@ public class OrderService(
 
             order.Status = OrderStatus.Cancelled;
             await context.SaveChangesAsync();
-            await ClearCacheAsync(id);
+            await ClearCacheAsync(id, order.UserId);
             return Result<bool>.Success(true);
         }
         catch (Exception ex)
@@ -100,7 +99,7 @@ public class OrderService(
 
             context.Orders.Add(order);
             await context.SaveChangesAsync();
-            await InvalidateListCacheAsync();
+            await InvalidateListCacheAsync(order.UserId);
 
             return Result<OrderResponse>.Success(mapper.Map<OrderResponse>(order));
         }
@@ -115,7 +114,9 @@ public class OrderService(
     {
         try
         {
-            var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
+            string versionKey = userId.HasValue ? $"orders:version:{userId}" : "orders:version:all";
+            var version = await cache.GetStringAsync(versionKey) ?? "1";
+
             var cacheKey = $"orders:list:{version}:{userId}:{page}:{limit}:{sortBy}:{isDescending}";
 
             var cachedData = await cache.GetAsync<IEnumerable<OrderResponse>>(cacheKey);
@@ -144,12 +145,12 @@ public class OrderService(
         }
     }
 
-    private async Task ClearCacheAsync(Guid id)
+    private async Task ClearCacheAsync(Guid id, Guid userId)
     {
         try
         {
             await cache.RemoveAsync($"order:{id}");
-            await InvalidateListCacheAsync();
+            await InvalidateListCacheAsync(userId);
         }
         catch (Exception ex)
         {
@@ -157,19 +158,25 @@ public class OrderService(
         }
     }
 
-    private async Task InvalidateListCacheAsync()
+    private async Task InvalidateListCacheAsync(Guid userId)
     {
         try
         {
-            var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
-            if (int.TryParse(version, out int v))
-                await cache.SetRawAsync(ListVersionKey, (v + 1).ToString());
-            else
-                await cache.SetRawAsync(ListVersionKey, "1");
+            await IncrementVersionAsync($"orders:version:{userId}");
+            await IncrementVersionAsync("orders:version:all");
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to invalidate list cache");
         }
+    }
+
+    private async Task IncrementVersionAsync(string key)
+    {
+        var version = await cache.GetStringAsync(key) ?? "1";
+        if (int.TryParse(version, out int v))
+            await cache.SetRawAsync(key, (v + 1).ToString());
+        else
+            await cache.SetRawAsync(key, "1");
     }
 }

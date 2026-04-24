@@ -85,7 +85,23 @@ public class OrderServiceTests : IDisposable
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, await _context.Orders.CountAsync());
-        _cacheMock.Verify(x => x.SetRawAsync(It.IsAny<string>(), "2", null), Times.Once);
+
+        _cacheMock.Verify(x => x.SetRawAsync(It.IsAny<string>(), "2", null), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task UpdateAddress_WhenStatusIsPending_ShouldSucceedAndInvalidateCache()
+    {
+        var userId = Guid.NewGuid();
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, ShippingAddress = "Old", Products = "P", UserId = userId };
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+        _cacheMock.Setup(x => x.GetStringAsync(It.IsAny<string>())).ReturnsAsync("1");
+
+        var result = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
+
+        Assert.True(result.IsSuccess);
+        _cacheMock.Verify(x => x.SetRawAsync(It.IsAny<string>(), "2", null), Times.Exactly(2));
     }
 
     [Fact]
