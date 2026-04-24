@@ -108,6 +108,33 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
         var response = await _client.GetAsync("/api/orders?page=1&limit=5");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task UpdateAddress_NonExistentOrder_ReturnsNotFound()
+    {
+        var response = await _client.HttpPatchAsync($"/api/orders/{Guid.NewGuid()}/address",
+            JsonContent.Create(new UpdateOrderAddressRequest("New St.")));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CancelOrder_NonExistentOrder_ReturnsNotFound()
+    {
+        var response = await _client.PostAsync($"/api/orders/{Guid.NewGuid()}/cancel", null);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetOrders_WithInvalidPage_ReturnsEmptyList()
+    {
+        var response = await _client.GetAsync("/api/orders?page=999&limit=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var content = await response.Content.ReadFromJsonAsync<IEnumerable<OrderResponse>>();
+        Assert.Empty(content!);
+    }
 }
 
 public static class HttpClientExtensions

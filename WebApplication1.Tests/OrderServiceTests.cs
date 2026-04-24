@@ -190,5 +190,51 @@ public class OrderServiceTests : IDisposable
         Assert.Equal(5, result.Value!.Count());
     }
 
+    [Fact]
+    public async Task UpdateAddress_WhenStatusIsAtLimit_ReturnsConflict()
+    {
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.InTransit, Products = "P", ShippingAddress = "A" };
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorType.Conflict, result.ErrorType);
+    }
+
+    [Fact]
+    public async Task GetOrders_SortByStatusAscending_ReturnsCorrectSequence()
+    {
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A" });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, Products = "P", ShippingAddress = "A" });
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().GetOrdersAsync(1, 10, sortBy: "status", isDescending: false);
+
+        Assert.Equal("Pending", result.Value!.First().Status);
+    }
+
+    [Fact]
+    public async Task CancelOrder_OrderNotFound_ReturnsNotFound()
+    {
+        var result = await CreateService().CancelOrderAsync(Guid.NewGuid());
+        Assert.Equal(ErrorType.NotFound, result.ErrorType);
+    }
+
+    [Fact]
+    public async Task GetOrders_DefaultSort_ReturnsByDateDescending()
+    {
+        var oldDate = DateTime.UtcNow.AddDays(-1);
+        var newDate = DateTime.UtcNow;
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), CreatedAt = oldDate, Products = "P", ShippingAddress = "A" });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), CreatedAt = newDate, Products = "P", ShippingAddress = "A" });
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().GetOrdersAsync(1, 10);
+
+        Assert.Equal(newDate, result.Value!.First().CreatedAt);
+    }
+
     public void Dispose() => _context.Dispose();
 }
