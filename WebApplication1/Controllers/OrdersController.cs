@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using WebApplication1.Domain;
 using WebApplication1.Services;
@@ -15,13 +14,12 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     {
         var result = await orderService.CreateOrderAsync(request);
 
-        if (result.IsSuccess)
+        if (!result.IsSuccess)
         {
             return HandleResult(result);
         }
 
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
-
     }
 
     [HttpGet("{id:guid}")]
@@ -56,7 +54,6 @@ public class OrdersController(IOrderService orderService) : ControllerBase
         var result = await orderService.CancelOrderAsync(id);
         return HandleResult(result);
     }
-
 
     private ActionResult HandleResult<T>(Result<T> result)
     {

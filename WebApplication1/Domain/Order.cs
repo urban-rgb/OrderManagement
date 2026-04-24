@@ -1,7 +1,5 @@
 ﻿namespace WebApplication1.Domain;
 
-// TODO заполнить каждый из summary XML типа (для каждой из паблик переменных)
-// мжоет быть не только summary
 
 public class Order
 {

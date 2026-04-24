@@ -16,4 +16,18 @@ services:
     restart: always
     ports:
       - "6379:6379"
-      # TODO попробовать добавить запуск приложения в этот файл
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orders_api
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=db;Database=orders_db;Username=user;Password=password
+      - ConnectionStrings__Redis=redis:6379

@@ -1,98 +1,63 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
-using System.Text.Json;
+﻿using Mapster;
+using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
 using WebApplication1.Data;
 using WebApplication1.Domain;
 using WebApplication1.Services;
 using WebApplication1.Services.DTOs;
 
-public class OrderService(AppDbContext context, IDistributedCache cache, ILogger<OrderService> logger) : IOrderService
+public class OrderService(
+    AppDbContext context,
+    ICacheService cache,
+    ILogger<OrderService> logger,
+    TimeProvider timeProvider,
+    IMapper mapper) : IOrderService
 {
     private const string ListVersionKey = "orders:list:version";
+    private static readonly TimeSpan OrderCacheExpiration = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan ListCacheExpiration = TimeSpan.FromMinutes(10);
 
-    public async Task<Result<OrderResponse>> GetOrderAsync(Guid id) 
+    public async Task<Result<OrderResponse>> GetOrderAsync(Guid id)
     {
         string cacheKey = $"order:{id}";
+        var cachedOrder = await cache.GetAsync<OrderResponse>(cacheKey);
+        if (cachedOrder != null) return Result<OrderResponse>.Success(cachedOrder);
 
         try
         {
-            var cachedOrder = await cache.GetStringAsync(cacheKey);
+            var order = await context.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
+            if (order == null) return Result<OrderResponse>.Failure("Order not found", ErrorType.NotFound);
 
-            if (!string.IsNullOrEmpty(cachedOrder))
-            {
-                var data = JsonSerializer.Deserialize<OrderResponse>(cachedOrder)!;
-                return Result<OrderResponse>.Success(data);
-            }
+            var response = mapper.Map<OrderResponse>(order);
+            await cache.SetAsync(cacheKey, response, OrderCacheExpiration);
+            return Result<OrderResponse>.Success(response);
         }
-        catch (Exception ex) {
-            logger.LogWarning(ex, "Redis is unavailable while getting order {id}", id);
-        }
-        
-
-        var response = await context.Orders
-            .AsNoTracking()
-            .Where(o => o.Id == id)
-            .Select(o => new OrderResponse(o.Id, o.Status.ToString(), o.Products, o.ShippingAddress, o.TotalAmount, o.CreatedAt))
-            .FirstOrDefaultAsync();
-
-        if (response == null)
+        catch (Exception ex)
         {
-            return Result<OrderResponse>.Failure("Order not found", ErrorType.NotFound);
+            logger.LogError(ex, "Error getting order {Id}", id);
+            return Result<OrderResponse>.Failure("Database error", ErrorType.Failure);
         }
-
-        try
-        {
-            await cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(response), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
-            });
-        }
-        catch (Exception ex) {
-            logger.LogWarning(ex, "Failed to set cache for order {Id}", id);
-        }
-
-        return Result<OrderResponse>.Success(response);
-
     }
 
-    // [x] TODO result pattern - в этом и других местах лучше использовать его, чем мой способ, попробовать заменить
-    // [x]? TODO обезопасить вылет
     public async Task<Result<bool>> UpdateAddressAsync(Guid id, UpdateOrderAddressRequest request)
     {
-        if (request == null)
-            return Result<bool>.Failure("Invalid address data", ErrorType.Validation);
-
         try
         {
             var order = await context.Orders.FirstOrDefaultAsync(o => o.Id == id);
+            if (order == null) return Result<bool>.Failure("Order not found", ErrorType.NotFound);
 
-            if (order == null)
-                return Result<bool>.Failure("Order not found", ErrorType.NotFound);
-
-            int currentStatus = (int)order.Status;
-
-            /*if (order.Status is OrderStatus.InTransit or OrderStatus.Delivered)*/
-            if (currentStatus >= 300)
+            if (order.Status >= OrderStatus.AddressChangeLimit)
                 return Result<bool>.Failure("Cannot change address", ErrorType.Conflict);
 
             order.ShippingAddress = request.NewAddress;
-
             await context.SaveChangesAsync();
-
             await ClearCacheAsync(id);
-
-            logger.LogInformation("Address for order {Id} updated", id);
             return Result<bool>.Success(true);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex)
         {
-            logger.LogWarning("Concurrency conflict during address update for order {Id}", id);
-            return Result<bool>.Failure("Data was modified by another user. Please refresh.", ErrorType.Conflict);
-        }
-        catch(Exception ex)
-        {
-            logger.LogError(ex, "Error updating address for order {Id}", id);
-            return Result<bool>.Failure("Database error occurred", ErrorType.Failure);
+            logger.LogError(ex, "Error updating address");
+            return Result<bool>.Failure("Internal error", ErrorType.Failure);
         }
     }
 
@@ -101,36 +66,21 @@ public class OrderService(AppDbContext context, IDistributedCache cache, ILogger
         try
         {
             var order = await context.Orders.FirstOrDefaultAsync(o => o.Id == id);
+            if (order == null) return Result<bool>.Failure("Order not found", ErrorType.NotFound);
 
-            if (order == null)
-                return Result<bool>.Failure("Order not found", ErrorType.NotFound);
-
-            int currentStatus = (int)order.Status;
-            /*vif (order.Status == OrderStatus.Delivered)*/
-            if (currentStatus >= 400)
+            if (order.Status >= OrderStatus.CancellationLimit)
                 return Result<bool>.Failure("Cannot cancel delivered order", ErrorType.Conflict);
 
             order.Status = OrderStatus.Cancelled;
             await context.SaveChangesAsync();
-
-            // [x] ещё раз просмотреть этот метод и попробовать объеденить с RemoveAsync
-            //await cache.RemoveAsync($"order:{id}");
-            //await InvalidateListCacheAsync();
             await ClearCacheAsync(id);
-
-            logger.LogInformation("Order {Id} cancelled", id);
             return Result<bool>.Success(true);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return Result<bool>.Failure("Concurrency conflict. Order status was changed by another process.", ErrorType.Conflict);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error cancelling order {Id}", id);
-            return Result<bool>.Failure("An internal error occurred", ErrorType.Failure);
+            logger.LogError(ex, "Error cancelling order");
+            return Result<bool>.Failure("Internal error", ErrorType.Failure);
         }
-
     }
 
     public async Task<Result<OrderResponse>> CreateOrderAsync(CreateOrderRequest request)
@@ -145,105 +95,67 @@ public class OrderService(AppDbContext context, IDistributedCache cache, ILogger
                 Products = request.Products,
                 ShippingAddress = request.ShippingAddress,
                 TotalAmount = request.TotalAmount,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = timeProvider.GetUtcNow().UtcDateTime
             };
+
             context.Orders.Add(order);
             await context.SaveChangesAsync();
-
             await InvalidateListCacheAsync();
 
-            logger.LogInformation("Order {Id} created for user {UserId}", order.Id, order.UserId);
-            return Result<OrderResponse>.Success(MapToResponse(order));
+            return Result<OrderResponse>.Success(mapper.Map<OrderResponse>(order));
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to create order");
-            return Result<OrderResponse>.Failure("Error saving order to database", ErrorType.Failure);
+            logger.LogError(ex, "Error creating order");
+            return Result<OrderResponse>.Failure("Internal error", ErrorType.Failure);
         }
     }
 
     public async Task<Result<IEnumerable<OrderResponse>>> GetOrdersAsync(int page, int limit, Guid? userId = null, string? sortBy = null, bool isDescending = true)
     {
-        string version = "1";
-        try
-        {
-            version = await cache.GetStringAsync(ListVersionKey) ?? "1";
-        }
-        catch {  }
+        var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
+        var cacheKey = $"orders:list:{version}:{userId}:{page}:{limit}:{sortBy}:{isDescending}";
 
-        string cacheKey = $"orders:list:{version}:{userId}:{page}:{limit}:{sortBy}:{isDescending}";
+        var cachedData = await cache.GetAsync<IEnumerable<OrderResponse>>(cacheKey);
+        if (cachedData != null) return Result<IEnumerable<OrderResponse>>.Success(cachedData);
 
-        try
-        {
-            var cachedData = await cache.GetStringAsync(cacheKey);
-            if (!string.IsNullOrEmpty(cachedData))
-            {
-                var data = JsonSerializer.Deserialize<IEnumerable<OrderResponse>>(cachedData)!;
-                return Result<IEnumerable<OrderResponse>>.Success(data);
-            }
-        }
-        catch {  }
-
-        var query = context.Orders.AsNoTracking();
-
-        if (userId.HasValue)
-            query = query.Where(o => o.UserId == userId.Value);
+        var query = context.Orders.AsQueryable();
+        if (userId.HasValue) query = query.Where(o => o.UserId == userId.Value);
 
         query = sortBy?.ToLower() switch
         {
-            "amount" => isDescending ? query.OrderByDescending(o => o.TotalAmount) : query.OrderBy(o => o.TotalAmount),
-            "status" => isDescending ? query.OrderByDescending(o => o.Status) : query.OrderBy(o => o.Status),
-            _ => isDescending ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt)
+            "amount" => isDescending ? query.OrderByDescending(o => o.TotalAmount).ThenBy(o => o.Id) : query.OrderBy(o => o.TotalAmount).ThenBy(o => o.Id),
+            "status" => isDescending ? query.OrderByDescending(o => o.Status).ThenBy(o => o.Id) : query.OrderBy(o => o.Status).ThenBy(o => o.Id),
+            _ => isDescending ? query.OrderByDescending(o => o.CreatedAt).ThenBy(o => o.Id) : query.OrderBy(o => o.CreatedAt).ThenBy(o => o.Id)
         };
-
-
-        var response = await query
-            .Skip((page - 1) * limit) // пагинация
-            .Take(limit)              // пагинация
-            .Select(o => new OrderResponse(o.Id, o.Status.ToString(), o.Products, o.ShippingAddress, o.TotalAmount, o.CreatedAt)) // SELECT из SQL
-            .ToListAsync(); // отправка запроса в бд
 
         try
         {
-            await cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(response), new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
-            });
-        }
-        catch {  }
+            var entities = await query.Skip((page - 1) * limit).Take(limit).ToListAsync();
+            var response = mapper.Map<List<OrderResponse>>(entities);
 
-        return Result<IEnumerable<OrderResponse>>.Success(response);
+            await cache.SetAsync(cacheKey, (IEnumerable<OrderResponse>)response, ListCacheExpiration);
+            return Result<IEnumerable<OrderResponse>>.Success(response);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching orders");
+            return Result<IEnumerable<OrderResponse>>.Failure("Database error", ErrorType.Failure);
+        }
     }
 
     private async Task ClearCacheAsync(Guid id)
     {
-        try
-        {
-            await cache.RemoveAsync($"order:{id}");
-            await InvalidateListCacheAsync();
-        }
-        catch(Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to clear cache for order {Id}", id);
-        }
+        await cache.RemoveAsync($"order:{id}");
+        await InvalidateListCacheAsync();
     }
 
     private async Task InvalidateListCacheAsync()
     {
-        try
-        {
-            var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
-            if (int.TryParse(version, out int v))
-            {
-                await cache.SetStringAsync(ListVersionKey, (v + 1).ToString());
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to invalidate list cache version");
-        }
+        var version = await cache.GetStringAsync(ListVersionKey) ?? "1";
+        if (int.TryParse(version, out int v))
+            await cache.SetRawAsync(ListVersionKey, (v + 1).ToString());
+        else
+            await cache.SetRawAsync(ListVersionKey, "1");
     }
-
-    private static OrderResponse MapToResponse(Order o) =>
-        new(o.Id, o.Status.ToString(), o.Products, o.ShippingAddress, o.TotalAmount, o.CreatedAt);
 }

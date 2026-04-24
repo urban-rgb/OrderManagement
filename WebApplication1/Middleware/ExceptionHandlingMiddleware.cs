@@ -31,9 +31,11 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = code;
 
-        var message = exception is DbUpdateConcurrencyException
-            ? "Data has been modified by another user. Please refresh."
-            : exception.Message;
+        var message = exception.Message;
+        if (exception.InnerException != null)
+        {
+            message += " -> " + exception.InnerException.Message;
+        }
 
         return context.Response.WriteAsJsonAsync(new { error = message });
     }

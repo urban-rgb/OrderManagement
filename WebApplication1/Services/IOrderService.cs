@@ -3,8 +3,6 @@ using WebApplication1.Services.DTOs;
 
 namespace WebApplication1.Services;
 
-// [x] TODO та же xml документация - добавить
-// [x] TODO CreateOrder DTO и ChangeOrder DTO - может есть потребность использовать несколько моделей
 
 public interface IOrderService
 {

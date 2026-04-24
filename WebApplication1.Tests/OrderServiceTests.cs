@@ -1,29 +1,158 @@
-﻿using Moq;
-using Xunit;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
+using WebApplication1.Data;
 using WebApplication1.Domain;
 using WebApplication1.Services;
-using Microsoft.Extensions.Caching.Distributed;
-using WebApplication1.Domain.Exceptions;
+using WebApplication1.Services.DTOs;
+using Mapster;
+using MapsterMapper;
+using Xunit;
 
-// TODO добавить побольше тестов на каждый из методов
-// попробовать сделать процент покрытия 50%+
-// TODO развернуть GitHub Actions
-public class OrderServiceTests
+namespace WebApplication1.Tests;
+
+public class OrderServiceTests : IDisposable
 {
-    [Fact]
-    public async Task GetOrder_IfNotFound_ShouldThrowException()
+    private readonly AppDbContext _context;
+    private readonly Mock<ICacheService> _cacheMock = new();
+    private readonly Mock<ILogger<OrderService>> _loggerMock = new();
+    private readonly IMapper _mapper;
+    private readonly TimeProvider _timeProvider = TimeProvider.System;
+
+    public OrderServiceTests()
     {
-        // Arrange
-        var repoMock = new Mock<IOrderRepository>();
-        var cacheMock = new Mock<IDistributedCache>();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        _context = new AppDbContext(options);
+        _context.Database.EnsureCreated();
 
-        repoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>()))
-                .ReturnsAsync((Order)null!);
+        _cacheMock.Setup(x => x.GetAsync<IEnumerable<OrderResponse>>(It.IsAny<string>()))
+                  .ReturnsAsync((IEnumerable<OrderResponse>)null!);
 
-        var service = new OrderService(repoMock.Object, cacheMock.Object);
+        var config = new TypeAdapterConfig();
+        new OrderMapper().Register(config);
+        _mapper = new Mapper(config);
+    }
 
-        // Act and Assert
-        await Assert.ThrowsAsync<KeyNotFoundDomainException>(() =>
-            service.GetOrderAsync(Guid.NewGuid()));
+    private OrderService CreateService() =>
+        new(_context, _cacheMock.Object, _loggerMock.Object, _timeProvider, _mapper);
+
+    [Fact]
+    public async Task GetOrder_IfInCache_ShouldReturnFromCache()
+    {
+        var orderId = Guid.NewGuid();
+        var cachedOrder = new OrderResponse(orderId, "Pending", "Phone", "Street", 100m, DateTime.UtcNow);
+        _cacheMock.Setup(c => c.GetAsync<OrderResponse>(It.IsAny<string>())).ReturnsAsync(cachedOrder);
+
+        var result = await CreateService().GetOrderAsync(orderId);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(cachedOrder.Products, result.Value!.Products);
+    }
+
+    [Fact]
+    public async Task GetOrder_NotInCache_ShouldFetchFromDbAndCacheIt()
+    {
+        var order = new Order { Id = Guid.NewGuid(), Products = "P", ShippingAddress = "A", UserId = Guid.NewGuid() };
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().GetOrderAsync(order.Id);
+
+        Assert.True(result.IsSuccess);
+        _cacheMock.Verify(x => x.SetAsync(It.IsAny<string>(), It.IsAny<OrderResponse>(), It.IsAny<TimeSpan>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateOrder_ValidRequest_ShouldSaveToDbAndInvalidateList()
+    {
+        var request = new CreateOrderRequest(Guid.NewGuid(), "Laptop", "NY", 1500m);
+        _cacheMock.Setup(x => x.GetStringAsync(It.IsAny<string>())).ReturnsAsync("1");
+
+        var result = await CreateService().CreateOrderAsync(request);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, await _context.Orders.CountAsync());
+        _cacheMock.Verify(x => x.SetRawAsync(It.IsAny<string>(), "2", null), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAddress_WhenStatusIsPending_ShouldSucceed()
+    {
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, ShippingAddress = "Old", Products = "P" };
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
+
+        Assert.True(result.IsSuccess);
+        var updated = await _context.Orders.FindAsync(order.Id);
+        Assert.Equal("New", updated!.ShippingAddress);
+    }
+
+    [Fact]
+    public async Task UpdateAddress_OrderNotFound_ReturnsNotFound()
+    {
+        var result = await CreateService().UpdateAddressAsync(Guid.NewGuid(), new UpdateOrderAddressRequest("New"));
+        Assert.Equal(ErrorType.NotFound, result.ErrorType);
+    }
+
+    [Fact]
+    public async Task CancelOrder_WhenStatusIsDelivered_ReturnsConflict()
+    {
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A" };
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().CancelOrderAsync(order.Id);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorType.Conflict, result.ErrorType);
+    }
+
+    [Fact]
+    public async Task GetOrders_SortByAmountDescending_ReturnsCorrectSequence()
+    {
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), TotalAmount = 10, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), TotalAmount = 100, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().GetOrdersAsync(1, 10, sortBy: "amount", isDescending: true);
+
+        Assert.Equal(100, result.Value!.First().TotalAmount);
+    }
+
+    [Fact]
+    public async Task GetOrders_FilterByUserId_ReturnsOnlyUserOrders()
+    {
+        var userId = Guid.NewGuid();
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), UserId = userId, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), UserId = Guid.NewGuid(), Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().GetOrdersAsync(1, 10, userId: userId);
+
+        Assert.Single(result.Value!);
+    }
+
+    [Fact]
+    public async Task GetOrders_WithPagination_ReturnsCorrectCount()
+    {
+        for (int i = 0; i < 15; i++)
+        {
+            _context.Orders.Add(new Order { Id = Guid.NewGuid(), Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(i) });
+        }
+        await _context.SaveChangesAsync();
+
+        var result = await CreateService().GetOrdersAsync(page: 2, limit: 10);
+
+        Assert.Equal(5, result.Value!.Count());
+    }
+
+    public void Dispose()
+    {
+        _context.Database.EnsureDeleted();
+        _context.Dispose();
     }
 }

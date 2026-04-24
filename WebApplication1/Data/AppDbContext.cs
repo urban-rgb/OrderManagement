@@ -11,8 +11,15 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Order>()
-            .Property(o => o.Version)
-            .IsRowVersion();
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            modelBuilder.Entity<Order>().Ignore(o => o.Version);
+        }
+        else
+        {
+            modelBuilder.Entity<Order>()
+                .Property(o => o.Version)
+                .IsRowVersion();
+        }
     }
 }

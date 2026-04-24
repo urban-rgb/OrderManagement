@@ -1,12 +1,17 @@
-﻿namespace WebApplication1.Domain.Exceptions;
+﻿using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
-// TODO Один файл - один класс, разделить
-// TODO + создать разные конструкторы для каждой из ошибок (ссылка)
+namespace WebApplication1.Domain.Exceptions;
+
+[Serializable]
 public class DomainException : Exception
 {
     public DomainException() : base() { }
 
+    [JsonConstructor]
     public DomainException(string message) : base(message) { }
 
     public DomainException(string message, Exception innerException) : base(message, innerException) { }
+
+    protected DomainException(SerializationInfo info, StreamingContext context) : base(info, context) { }
 }
