@@ -45,7 +45,7 @@ public class OrderService(
             var order = await context.Orders.FirstOrDefaultAsync(o => o.Id == id);
             if (order == null) return Result<bool>.Failure("Order not found", ErrorType.NotFound);
 
-            if (order.Status >= OrderStatus.AddressChangeLimit)
+            if (order.Status is OrderStatus.InTransit or OrderStatus.Delivered or OrderStatus.Cancelled)
                 return Result<bool>.Failure("Cannot change address", ErrorType.Conflict);
 
             order.ShippingAddress = request.NewAddress;
@@ -67,7 +67,7 @@ public class OrderService(
             var order = await context.Orders.FirstOrDefaultAsync(o => o.Id == id);
             if (order == null) return Result<bool>.Failure("Order not found", ErrorType.NotFound);
 
-            if (order.Status >= OrderStatus.CancellationLimit)
+            if (order.Status is OrderStatus.InTransit or OrderStatus.Delivered or OrderStatus.Cancelled)
                 return Result<bool>.Failure("Cannot cancel delivered order", ErrorType.Conflict);
 
             order.Status = OrderStatus.Cancelled;
