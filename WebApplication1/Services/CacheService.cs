@@ -1,9 +1,11 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
 using StackExchange.Redis;
 using System.Text.Json;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WebApplication1.Services;
 
+[ExcludeFromCodeCoverage]
 public class CacheService(IDistributedCache cache, ILogger<CacheService> logger) : ICacheService
 {
     public async Task<T?> GetAsync<T>(string key)

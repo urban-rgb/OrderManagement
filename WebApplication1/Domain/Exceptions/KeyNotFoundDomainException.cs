@@ -1,7 +1,9 @@
 ﻿using System.Runtime.Serialization;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WebApplication1.Domain.Exceptions;
 
+[ExcludeFromCodeCoverage]
 public class KeyNotFoundDomainException : DomainException
 {
     public KeyNotFoundDomainException() : base() { }

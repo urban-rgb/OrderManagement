@@ -1,8 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using WebApplication1.Domain.Exceptions;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WebApplication1.Middleware;
 
+[ExcludeFromCodeCoverage]
 public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext context)

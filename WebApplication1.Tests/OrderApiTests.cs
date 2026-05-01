@@ -7,10 +7,12 @@ using System.Net.Http.Json;
 using WebApplication1.Data;
 using WebApplication1.Domain;
 using WebApplication1.Services.DTOs;
+using System.Diagnostics.CodeAnalysis;
 using Xunit;
 
 namespace WebApplication1.Tests;
 
+[ExcludeFromCodeCoverage]
 public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
@@ -137,6 +139,7 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 }
 
+[ExcludeFromCodeCoverage]
 public static class HttpClientExtensions
 {
     public static async Task<HttpResponseMessage> HttpPatchAsync(this HttpClient client, string requestUri, HttpContent content)

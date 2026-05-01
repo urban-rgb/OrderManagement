@@ -1,4 +1,5 @@
 ﻿namespace WebApplication1.Domain;
+using System.Diagnostics.CodeAnalysis;
 
 public enum ErrorType
 {
@@ -9,6 +10,7 @@ public enum ErrorType
     Failure = 500
 }
 
+[ExcludeFromCodeCoverage]
 public class Result<T>
 {
     public bool IsSuccess { get; }

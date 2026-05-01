@@ -5,11 +5,13 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebApplication1.Data;
+using System.Diagnostics.CodeAnalysis;
 
 #nullable disable
 
 namespace WebApplication1.Migrations
 {
+    [ExcludeFromCodeCoverage]
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
     {

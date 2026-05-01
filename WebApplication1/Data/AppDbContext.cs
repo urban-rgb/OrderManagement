@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using WebApplication1.Domain;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WebApplication1.Data;
 
+[ExcludeFromCodeCoverage]
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }

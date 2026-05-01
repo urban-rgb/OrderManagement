@@ -1,9 +1,11 @@
 ﻿using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WebApplication1.Domain.Exceptions;
 
 [Serializable]
+[ExcludeFromCodeCoverage]
 public class DomainException : Exception
 {
     public DomainException() : base() { }

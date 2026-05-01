@@ -7,10 +7,12 @@ using WebApplication1.Services;
 using WebApplication1.Services.DTOs;
 using Mapster;
 using MapsterMapper;
+using System.Diagnostics.CodeAnalysis;
 using Xunit;
 
 namespace WebApplication1.Tests;
 
+[ExcludeFromCodeCoverage]
 public class OrderServiceTests : IDisposable
 {
     private readonly AppDbContext _context;

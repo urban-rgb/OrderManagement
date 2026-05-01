@@ -1,7 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WebApplication1.Services.DTOs;
 
+[ExcludeFromCodeCoverage]
 public record CreateOrderRequest(
     [Required]
     Guid UserId,

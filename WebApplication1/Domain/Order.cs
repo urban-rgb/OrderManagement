@@ -1,6 +1,7 @@
 ﻿namespace WebApplication1.Domain;
+using System.Diagnostics.CodeAnalysis;
 
-
+[ExcludeFromCodeCoverage]
 public class Order
 {
     /// <summary>

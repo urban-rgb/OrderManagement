@@ -1,8 +1,9 @@
 ﻿using System.Runtime.Serialization;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WebApplication1.Domain.Exceptions;
 
-
+[ExcludeFromCodeCoverage]
 public class ConflictDomainException : DomainException
 {
     public ConflictDomainException() : base() { }
