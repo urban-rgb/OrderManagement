@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using OrderManagement;
@@ -45,13 +45,13 @@ public class OrderServiceTests : IDisposable
     public async Task GetOrder_IfInCache_ShouldReturnFromCache()
     {
         var orderId = Guid.NewGuid();
-        var cachedOrder = new OrderResponse(orderId, "Pending", "Phone", "Street", 100m, DateTime.UtcNow);
-        _cacheMock.Setup(c => c.GetAsync<OrderResponse>(It.IsAny<string>())).ReturnsAsync(cachedOrder);
+        var expectedOrder = new OrderResponse(orderId, "Pending", "Phone", "Street", 100m, DateTime.UtcNow);
+        _cacheMock.Setup(c => c.GetAsync<OrderResponse>(It.IsAny<string>())).ReturnsAsync(expectedOrder);
 
-        var result = await CreateService().GetOrderAsync(orderId);
+        var actualResult = await CreateService().GetOrderAsync(orderId);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(cachedOrder.Products, result.Value!.Products);
+        Assert.True(actualResult.IsSuccess);
+        Assert.Equal(expectedOrder.Products, actualResult.Value!.Products);
     }
 
     [Fact]
@@ -61,9 +61,9 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().GetOrderAsync(order.Id);
+        var actualResult = await CreateService().GetOrderAsync(order.Id);
 
-        Assert.True(result.IsSuccess);
+        Assert.True(actualResult.IsSuccess);
         _cacheMock.Verify(x => x.SetAsync(It.IsAny<string>(), It.IsAny<OrderResponse>(), It.IsAny<TimeSpan>()), Times.Once);
     }
 
@@ -72,10 +72,10 @@ public class OrderServiceTests : IDisposable
     {
         _cacheMock.Setup(c => c.GetAsync<OrderResponse>(It.IsAny<string>())).ThrowsAsync(new Exception("Redis down"));
 
-        var result = await CreateService().GetOrderAsync(Guid.NewGuid());
+        var actualResult = await CreateService().GetOrderAsync(Guid.NewGuid());
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.Failure, result.ErrorType);
+        Assert.False(actualResult.IsSuccess);
+        Assert.Equal(ErrorType.Failure, actualResult.ErrorType);
     }
 
     [Fact]
@@ -84,9 +84,9 @@ public class OrderServiceTests : IDisposable
         var request = new CreateOrderRequest(Guid.NewGuid(), "Laptop", "NY", 1500m);
         _cacheMock.Setup(x => x.GetStringAsync(It.IsAny<string>())).ReturnsAsync("1");
 
-        var result = await CreateService().CreateOrderAsync(request);
+        var actualResult = await CreateService().CreateOrderAsync(request);
 
-        Assert.True(result.IsSuccess);
+        Assert.True(actualResult.IsSuccess);
         Assert.Equal(1, await _context.Orders.CountAsync());
 
         _cacheMock.Verify(x => x.SetRawAsync(It.IsAny<string>(), "2", null), Times.Exactly(2));
@@ -101,9 +101,9 @@ public class OrderServiceTests : IDisposable
         await _context.SaveChangesAsync();
         _cacheMock.Setup(x => x.GetStringAsync(It.IsAny<string>())).ReturnsAsync("1");
 
-        var result = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
+        var actualResult = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
 
-        Assert.True(result.IsSuccess);
+        Assert.True(actualResult.IsSuccess);
         _cacheMock.Verify(x => x.SetRawAsync(It.IsAny<string>(), "2", null), Times.Exactly(2));
     }
 
@@ -114,9 +114,9 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
+        var actualResult = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
 
-        Assert.True(result.IsSuccess);
+        Assert.True(actualResult.IsSuccess);
         var updated = await _context.Orders.FindAsync(order.Id);
         Assert.Equal("New", updated!.ShippingAddress);
     }
@@ -124,8 +124,8 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task UpdateAddress_OrderNotFound_ReturnsNotFound()
     {
-        var result = await CreateService().UpdateAddressAsync(Guid.NewGuid(), new UpdateOrderAddressRequest("New"));
-        Assert.Equal(ErrorType.NotFound, result.ErrorType);
+        var actualResult = await CreateService().UpdateAddressAsync(Guid.NewGuid(), new UpdateOrderAddressRequest("New"));
+        Assert.Equal(ErrorType.NotFound, actualResult.ErrorType);
     }
 
     [Fact]
@@ -135,10 +135,10 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().CancelOrderAsync(order.Id);
+        var actualResult = await CreateService().CancelOrderAsync(order.Id);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.Conflict, result.ErrorType);
+        Assert.False(actualResult.IsSuccess);
+        Assert.Equal(ErrorType.Conflict, actualResult.ErrorType);
     }
 
     [Fact]
@@ -148,10 +148,10 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().CancelOrderAsync(order.Id);
+        var actualResult = await CreateService().CancelOrderAsync(order.Id);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.Conflict, result.ErrorType);
+        Assert.False(actualResult.IsSuccess);
+        Assert.Equal(ErrorType.Conflict, actualResult.ErrorType);
     }
 
     [Fact]
@@ -161,9 +161,9 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(new Order { Id = Guid.NewGuid(), TotalAmount = 100, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().GetOrdersAsync(1, 10, sortBy: "amount", isDescending: true);
+        var actualResult = await CreateService().GetOrdersAsync(1, 10, sortBy: "amount", isDescending: true);
 
-        Assert.Equal(100, result.Value!.First().TotalAmount);
+        Assert.Equal(100, actualResult.Value!.First().TotalAmount);
     }
 
     [Fact]
@@ -174,9 +174,9 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(new Order { Id = Guid.NewGuid(), UserId = Guid.NewGuid(), Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().GetOrdersAsync(1, 10, userId: userId);
+        var actualResult = await CreateService().GetOrdersAsync(1, 10, userId: userId);
 
-        Assert.Single(result.Value!);
+        Assert.Single(actualResult.Value!);
     }
 
     [Fact]
@@ -188,9 +188,9 @@ public class OrderServiceTests : IDisposable
         }
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().GetOrdersAsync(page: 2, limit: 10);
+        var actualResult = await CreateService().GetOrdersAsync(page: 2, limit: 10);
 
-        Assert.Equal(5, result.Value!.Count());
+        Assert.Equal(5, actualResult.Value!.Count());
     }
 
     [Fact]
@@ -200,10 +200,10 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
+        var actualResult = await CreateService().UpdateAddressAsync(order.Id, new UpdateOrderAddressRequest("New"));
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.Conflict, result.ErrorType);
+        Assert.False(actualResult.IsSuccess);
+        Assert.Equal(ErrorType.Conflict, actualResult.ErrorType);
     }
 
     [Fact]
@@ -213,16 +213,16 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, Products = "P", ShippingAddress = "A" });
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().GetOrdersAsync(1, 10, sortBy: "status", isDescending: false);
+        var actualResult = await CreateService().GetOrdersAsync(1, 10, sortBy: "status", isDescending: false);
 
-        Assert.Equal("Pending", result.Value!.First().Status);
+        Assert.Equal("Pending", actualResult.Value!.First().Status);
     }
 
     [Fact]
     public async Task CancelOrder_OrderNotFound_ReturnsNotFound()
     {
-        var result = await CreateService().CancelOrderAsync(Guid.NewGuid());
-        Assert.Equal(ErrorType.NotFound, result.ErrorType);
+        var actualResult = await CreateService().CancelOrderAsync(Guid.NewGuid());
+        Assert.Equal(ErrorType.NotFound, actualResult.ErrorType);
     }
 
     [Fact]
@@ -234,9 +234,9 @@ public class OrderServiceTests : IDisposable
         _context.Orders.Add(new Order { Id = Guid.NewGuid(), CreatedAt = newDate, Products = "P", ShippingAddress = "A" });
         await _context.SaveChangesAsync();
 
-        var result = await CreateService().GetOrdersAsync(1, 10);
+        var actualResult = await CreateService().GetOrdersAsync(1, 10);
 
-        Assert.Equal(newDate, result.Value!.First().CreatedAt);
+        Assert.Equal(newDate, actualResult.Value!.First().CreatedAt);
     }
 
     public void Dispose() => _context.Dispose();

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Distributed;
@@ -44,31 +44,31 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task CreateOrder_EmptyAddress_ReturnsBadRequest()
     {
         var request = new CreateOrderRequest(Guid.NewGuid(), "Products", string.Empty, 100m);
-        var response = await _client.PostAsJsonAsync("/api/orders", request);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var actualResponse = await _client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.BadRequest, actualResponse.StatusCode);
     }
 
     [Fact]
     public async Task CreateOrder_EmptyProducts_ReturnsBadRequest()
     {
         var request = new CreateOrderRequest(Guid.NewGuid(), string.Empty, "Address", 100m);
-        var response = await _client.PostAsJsonAsync("/api/orders", request);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var actualResponse = await _client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.BadRequest, actualResponse.StatusCode);
     }
 
     [Fact]
     public async Task GetOrder_NonExistent_ReturnsNotFound()
     {
-        var response = await _client.GetAsync($"/api/orders/{Guid.NewGuid()}");
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var actualResponse = await _client.GetAsync($"/api/orders/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, actualResponse.StatusCode);
     }
 
     [Fact]
     public async Task CreateOrder_NegativeAmount_ReturnsBadRequest()
     {
         var request = new CreateOrderRequest(Guid.NewGuid(), "Item", "Address", -10m);
-        var response = await _client.PostAsJsonAsync("/api/orders", request);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var actualResponse = await _client.PostAsJsonAsync("/api/orders", request);
+        Assert.Equal(HttpStatusCode.BadRequest, actualResponse.StatusCode);
     }
 
     [Fact]
@@ -82,10 +82,10 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
             await db.SaveChangesAsync();
         }
 
-        var response = await _client.HttpPatchAsync($"/api/orders/{orderId}/address",
+        var actualResponse = await _client.HttpPatchAsync($"/api/orders/{orderId}/address",
             JsonContent.Create(new UpdateOrderAddressRequest("New St.")));
 
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, actualResponse.StatusCode);
     }
 
     [Fact]
@@ -99,42 +99,42 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
             await db.SaveChangesAsync();
         }
 
-        var response = await _client.PostAsync($"/api/orders/{orderId}/cancel", null);
+        var actualResponse = await _client.PostAsync($"/api/orders/{orderId}/cancel", null);
 
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, actualResponse.StatusCode);
     }
 
     [Fact]
     public async Task GetOrders_ReturnsListWithOk()
     {
-        var response = await _client.GetAsync("/api/orders?page=1&limit=5");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var actualResponse = await _client.GetAsync("/api/orders?page=1&limit=5");
+        Assert.Equal(HttpStatusCode.OK, actualResponse.StatusCode);
     }
 
     [Fact]
     public async Task UpdateAddress_NonExistentOrder_ReturnsNotFound()
     {
-        var response = await _client.HttpPatchAsync($"/api/orders/{Guid.NewGuid()}/address",
+        var actualResponse = await _client.HttpPatchAsync($"/api/orders/{Guid.NewGuid()}/address",
             JsonContent.Create(new UpdateOrderAddressRequest("New St.")));
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, actualResponse.StatusCode);
     }
 
     [Fact]
     public async Task CancelOrder_NonExistentOrder_ReturnsNotFound()
     {
-        var response = await _client.PostAsync($"/api/orders/{Guid.NewGuid()}/cancel", null);
+        var actualResponse = await _client.PostAsync($"/api/orders/{Guid.NewGuid()}/cancel", null);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, actualResponse.StatusCode);
     }
 
     [Fact]
     public async Task GetOrders_WithInvalidPage_ReturnsEmptyList()
     {
-        var response = await _client.GetAsync("/api/orders?page=999&limit=10");
+        var actualResponse = await _client.GetAsync("/api/orders?page=999&limit=10");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var content = await response.Content.ReadFromJsonAsync<IEnumerable<OrderResponse>>();
+        Assert.Equal(HttpStatusCode.OK, actualResponse.StatusCode);
+        var content = await actualResponse.Content.ReadFromJsonAsync<IEnumerable<OrderResponse>>();
         Assert.Empty(content!);
     }
 }
