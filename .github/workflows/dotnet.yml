@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./WebApplication1
+        working-directory: ./OrderManagement
 
     steps:
     - uses: actions/checkout@v4
