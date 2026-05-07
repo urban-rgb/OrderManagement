@@ -19,7 +19,7 @@ A full-stack order management system built with ASP.NET Core and Angular.
 Clone the repository, then start the backend:
 
 ```bash
-cd WebApplication1
+cd backend
 docker compose up -d --build
 ```
 
@@ -46,7 +46,7 @@ docker compose up -d --build
 
 ```
 OrderManagement/
-├── WebApplication1/     # ASP.NET Core backend
+├── backend/     # ASP.NET Core backend
 │   ├── Controllers/
 │   ├── Domain/
 │   ├── Services/
