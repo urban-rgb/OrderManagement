@@ -1,0 +1,57 @@
+@if (slices.length > 0) {
+  <div class="stats-card">
+    <h2 class="stats-title">Order Statistics</h2>
+    <div class="stats-body">
+
+      <div class="donut-wrap">
+        <svg viewBox="0 0 140 140" class="donut-svg">
+          @for (slice of slices; track slice.status) {
+            <circle
+              class="donut-ring"
+              [attr.r]="r"
+              [attr.cx]="cx"
+              [attr.cy]="cy"
+              fill="transparent"
+              [attr.stroke]="slice.color"
+              stroke-width="20"
+              [attr.stroke-dasharray]="getStrokeDasharray(slice.percent)"
+              [attr.stroke-dashoffset]="getStrokeDashoffset(slice.offset)"
+              [style.opacity]="hovered === null || hovered === slice.status ? 1 : 0.25"
+              (mouseenter)="hovered = slice.status"
+              (mouseleave)="hovered = null"
+            />
+          }
+        </svg>
+        <div class="donut-center">
+          @if (hoveredSlice) {
+            <span class="donut-count">{{ hoveredSlice.count }}</span>
+            <span class="donut-label">{{ hoveredSlice.status }}</span>
+          } @else {
+            <span class="donut-count">{{ total }}</span>
+            <span class="donut-label">total</span>
+          }
+        </div>
+      </div>
+
+      <div class="legend">
+        @for (slice of slices; track slice.status) {
+          <div
+            class="legend-item"
+            [class.faded]="hovered !== null && hovered !== slice.status"
+            (mouseenter)="hovered = slice.status"
+            (mouseleave)="hovered = null"
+          >
+            <span class="legend-dot" [style.background]="slice.color"></span>
+            <span class="legend-status">{{ slice.status }}</span>
+            <span class="legend-count mono">{{ slice.count }}</span>
+            <span class="legend-bar-wrap">
+              <span class="legend-bar" [style.width.%]="slice.percent" [style.background]="slice.color"></span>
+            </span>
+            <span class="legend-pct mono">{{ slice.percent | number:'1.0-0' }}%</span>
+          </div>
+        }
+      </div>
+
+    </div>
+  </div>
+}

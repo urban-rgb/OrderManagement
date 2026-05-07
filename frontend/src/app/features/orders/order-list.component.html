@@ -68,4 +68,7 @@
       <button class="btn btn-ghost btn-sm" (click)="nextPage()" [disabled]="orders().length < limit">Next →</button>
     </div>
   }
+  <div>
+    <app-order-stats [orders]="orders()" />
+  </div>
 }

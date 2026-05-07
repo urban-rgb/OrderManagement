@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { OrderService } from '../../core/services/order.service';
 import { OrderResponse, OrderListParams } from '../../core/models/order.models';
+import { OrderStatsComponent } from '../order-stats/order-stats.component';
 
 @Component({
   selector: 'app-order-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, OrderStatsComponent],
   templateUrl: './order-list.component.html',
   styleUrl: './order-list.component.css'
 })
