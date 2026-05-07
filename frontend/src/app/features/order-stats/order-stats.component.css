@@ -1,0 +1,127 @@
+.stats-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-bottom: 28px;
+  background: var(--bg);
+}
+
+.stats-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.stats-body {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+/* Donut */
+.donut-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 140px;
+  height: 140px;
+}
+
+.donut-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.donut-ring {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donut-count {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.donut-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Legend */
+.legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.legend-item.faded {
+  opacity: 0.3;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-status {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  width: 80px;
+}
+
+.legend-count {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  width: 24px;
+  text-align: right;
+}
+
+.legend-bar-wrap {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-elevated);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.legend-bar {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.legend-pct {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  width: 32px;
+  text-align: right;
+}
