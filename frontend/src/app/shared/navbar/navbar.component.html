@@ -1,0 +1,16 @@
+<header class="navbar">
+  <div class="navbar-inner">
+    <a routerLink="/orders" class="logo">
+      <span class="logo-mark">◆</span>
+      <span class="logo-text">Orders</span>
+    </a>
+    <nav class="nav-links">
+      <a routerLink="/orders" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
+        All Orders
+      </a>
+      <a routerLink="/orders/new" routerLinkActive="active" class="nav-link nav-cta">
+        + New Order
+      </a>
+    </nav>
+  </div>
+</header>

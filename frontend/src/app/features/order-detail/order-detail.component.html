@@ -1,0 +1,68 @@
+@if (loading()) {
+  <div class="center"><div class="spinner"></div></div>
+}
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (order(); as order) {
+  <div class="detail-header">
+    <a routerLink="/orders" class="back-link">← Orders</a>
+    <span class="badge badge-{{ order.status | lowercase }}">{{ order.status }}</span>
+  </div>
+
+  <h1 class="mono">{{ order.id }}</h1>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Products</div>
+      <div class="card-value">{{ order.products }}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Total Amount</div>
+      <div class="card-value mono">${{ order.totalAmount | number:'1.2-2' }}</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Created At</div>
+      <div class="card-value mono">{{ order.createdAt | date:'dd.MM.yyyy HH:mm' }}</div>
+    </div>
+    <div class="card address-card">
+      <div class="card-label-row">
+        <span class="card-label">Shipping Address</span>
+        @if (canChangeAddress()) {
+          <button class="btn btn-ghost btn-sm" (click)="editingAddress = !editingAddress">
+            {{ editingAddress ? 'Cancel' : 'Edit' }}
+          </button>
+        }
+      </div>
+
+      @if (editingAddress) {
+        <div class="address-form">
+          <input class="form-control" [(ngModel)]="newAddress" [placeholder]="order.shippingAddress" />
+          <button class="btn btn-primary btn-sm" (click)="submitAddress()" [disabled]="actionLoading() || !newAddress.trim()">
+            Save
+          </button>
+        </div>
+      } @else {
+        <div class="card-value">{{ order.shippingAddress }}</div>
+      }
+    </div>
+  </div>
+
+  @if (actionError()) {
+    <div class="error-banner">{{ actionError() }}</div>
+  }
+
+  @if (actionSuccess()) {
+    <div class="success-banner">{{ actionSuccess() }}</div>
+  }
+
+  <div class="actions">
+    @if (canCancel()) {
+      <button class="btn btn-danger" (click)="cancel()" [disabled]="actionLoading()">
+        Cancel Order
+      </button>
+    }
+  </div>
+}

@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:latest
+    image: postgres:16
     container_name: orders_db
     restart: always
     environment:
@@ -9,6 +9,15 @@ services:
       POSTGRES_DB: orders_db
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d orders_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - orders_network
 
   redis:
     image: redis:latest
@@ -16,6 +25,8 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    networks:
+      - orders_network
 
   app:
     build:
@@ -23,11 +34,23 @@ services:
       dockerfile: Dockerfile
     container_name: orders_api
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=db;Database=orders_db;Username=user;Password=password
       - ConnectionStrings__Redis=redis:6379
+    networks:
+      - orders_network
+
+volumes:
+  postgres_data:
+
+networks:
+  orders_network:
+    external: true
