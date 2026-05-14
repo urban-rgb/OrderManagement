@@ -1,0 +1,52 @@
+<div class="form-header">
+  <a routerLink="/orders" class="back-link">← Orders</a>
+  <h1>New Order</h1>
+</div>
+
+<div class="card form-card">
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="form-group">
+      <label class="form-label">User ID</label>
+      <input class="form-control" [class.is-invalid]="isInvalid('userId')" formControlName="userId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+      @if (isInvalid('userId')) {
+        <span class="form-error">Valid UUID required</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Products</label>
+      <input class="form-control" [class.is-invalid]="isInvalid('products')" formControlName="products" placeholder="e.g. Laptop x1, Mouse x2" />
+      @if (isInvalid('products')) {
+        <span class="form-error">Required</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Shipping Address</label>
+      <input class="form-control" [class.is-invalid]="isInvalid('shippingAddress')" formControlName="shippingAddress" placeholder="Street, City, Country" />
+      @if (isInvalid('shippingAddress')) {
+        <span class="form-error">Required</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Total Amount</label>
+      <input class="form-control" [class.is-invalid]="isInvalid('totalAmount')" formControlName="totalAmount" type="number" min="0.01" step="0.01" placeholder="0.00" />
+      @if (isInvalid('totalAmount')) {
+        <span class="form-error">Must be greater than 0</span>
+      }
+    </div>
+
+    @if (error) {
+      <div class="error-banner">{{ error }}</div>
+    }
+
+    <div class="form-actions">
+      <a routerLink="/orders" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="loading">
+        @if (loading) { <span class="spinner spinner-sm"></span> }
+        Create Order
+      </button>
+    </div>
+  </form>
+</div>

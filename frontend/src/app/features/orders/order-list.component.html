@@ -1,0 +1,74 @@
+<div class="list-header">
+  <h1>Orders</h1>
+  <a routerLink="/orders/new" class="btn btn-primary">+ New Order</a>
+</div>
+
+<div class="filters">
+  <input
+    class="form-control"
+    placeholder="Filter by User ID"
+    [(ngModel)]="userId"
+    (keyup.enter)="page = 1; load()"
+  />
+  <select class="form-control" [(ngModel)]="sortBy" (change)="page = 1; load()">
+    <option value="createdAt">Date</option>
+    <option value="amount">Amount</option>
+    <option value="status">Status</option>
+  </select>
+  <button class="btn btn-ghost" (click)="isDescending = !isDescending; page = 1; load()">
+    {{ isDescending ? '↓ Desc' : '↑ Asc' }}
+  </button>
+</div>
+
+@if (loading()) {
+  <div class="center"><div class="spinner"></div></div>
+}
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (!loading() && !error()) {
+  @if (orders().length === 0) {
+    <div class="empty-state">
+      <div class="empty-state-icon">📭</div>
+      <p>No orders found</p>
+    </div>
+  } @else {
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>ID</th>
+          <th>Status</th>
+          <th (click)="onSortChange('amount')" class="sortable">Amount</th>
+          <th>Address</th>
+          <th (click)="onSortChange('createdAt')" class="sortable">Created</th>
+          <th></th>
+        </tr>
+        </thead>
+        <tbody>
+          @for (order of orders(); track order.id) {
+            <tr>
+              <td class="mono id-cell">{{ order.id | slice:0:8 }}…</td>
+              <td><span class="badge badge-{{ order.status | lowercase }}">{{ order.status }}</span></td>
+              <td class="mono">${{ order.totalAmount | number:'1.2-2' }}</td>
+              <td class="address-cell">{{ order.shippingAddress }}</td>
+              <td class="mono">{{ order.createdAt | date:'dd.MM.yy HH:mm' }}</td>
+              <td><a [routerLink]="['/orders', order.id]" class="btn btn-ghost btn-sm">View →</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination">
+      <button class="btn btn-ghost btn-sm" (click)="prevPage()" [disabled]="page === 1">← Prev</button>
+      <span class="mono">Page {{ page }}</span>
+      <button class="btn btn-ghost btn-sm" (click)="nextPage()" [disabled]="orders().length < limit">Next →</button>
+    </div>
+  }
+  <div>
+    <app-order-stats [orders]="orders()" />
+  </div>
+}
