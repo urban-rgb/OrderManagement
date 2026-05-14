@@ -8,6 +8,9 @@ using backend;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// for deploy
+builder.Services.AddHealthChecks(); 
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -43,6 +46,9 @@ builder.Services.AddStackExchangeRedisCache(options =>
 
 var app = builder.Build();
 
+// for deploy
+app.MapHealthChecks("/health");
+
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors();
 
@@ -63,5 +69,3 @@ using (var scope = app.Services.CreateScope())
 
 
 app.Run();
-
-public partial class Program { }

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-frontend
+  namespace: orders
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-frontend
+  template:
+    metadata:
+      labels:
+        app: orders-frontend
+    spec:
+      containers:
+        - name: orders-frontend
+          image: ordersacr001.azurecr.io/orders-frontend:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-frontend
+  namespace: orders
+spec:
+  selector:
+    app: orders-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
