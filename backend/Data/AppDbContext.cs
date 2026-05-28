@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,5 +22,9 @@ public class AppDbContext : DbContext
                 .Property(o => o.Version)
                 .IsRowVersion();
         }
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email)
+            .IsUnique();
     }
 }

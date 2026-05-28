@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using backend.Domain.Exceptions;
 
 namespace backend.Middleware;
@@ -22,6 +23,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
     {
         var code = exception switch
         {
+            SecurityTokenException => StatusCodes.Status401Unauthorized,
             KeyNotFoundDomainException => StatusCodes.Status404NotFound,
             ConflictDomainException or DbUpdateConcurrencyException => StatusCodes.Status409Conflict,
             DomainException => StatusCodes.Status400BadRequest,

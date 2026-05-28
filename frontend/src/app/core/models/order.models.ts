@@ -16,7 +16,6 @@ export interface OrderResponse {
 }
 
 export interface CreateOrderRequest {
-  userId: string;
   products: string;
   shippingAddress: string;
   totalAmount: number;
@@ -27,7 +26,6 @@ export interface UpdateOrderAddressRequest {
 }
 
 export interface OrderListParams {
-  userId?: string;
   sortBy?: 'amount' | 'status' | 'createdAt';
   isDescending?: boolean;
   page?: number;

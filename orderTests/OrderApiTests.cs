@@ -41,7 +41,7 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task CreateOrder_EmptyAddress_ReturnsBadRequest()
     {
-        var request = new CreateOrderRequest(Guid.NewGuid(), "Products", string.Empty, 100m);
+        var request = new CreateOrderRequest("Products", string.Empty, 100m);
         var response = await _client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -49,7 +49,7 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task CreateOrder_EmptyProducts_ReturnsBadRequest()
     {
-        var request = new CreateOrderRequest(Guid.NewGuid(), string.Empty, "Address", 100m);
+        var request = new CreateOrderRequest(string.Empty, "Address", 100m);
         var response = await _client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -64,7 +64,7 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task CreateOrder_NegativeAmount_ReturnsBadRequest()
     {
-        var request = new CreateOrderRequest(Guid.NewGuid(), "Item", "Address", -10m);
+        var request = new CreateOrderRequest("Item", "Address", -10m);
         var response = await _client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

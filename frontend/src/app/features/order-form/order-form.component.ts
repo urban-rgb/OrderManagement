@@ -20,7 +20,6 @@ export class OrderFormComponent {
   error: string | null = null;
 
   form = this.fb.group({
-    userId: ['', [Validators.required, Validators.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)]],
     products: ['', Validators.required],
     shippingAddress: ['', Validators.required],
     totalAmount: [null as number | null, [Validators.required, Validators.min(0.01)]]
@@ -40,7 +39,6 @@ export class OrderFormComponent {
     const value = this.form.getRawValue();
 
     this.orderService.createOrder({
-      userId: value.userId!,
       products: value.products!,
       shippingAddress: value.shippingAddress!,
       totalAmount: value.totalAmount!

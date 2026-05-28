@@ -5,6 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Mapster;
 using MapsterMapper;
 using backend;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +17,21 @@ builder.Services.AddHealthChecks();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header
+    });
+    c.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+    {
+        { new OpenApiSecuritySchemeReference("Bearer", doc), new List<string>() }
+    });
+});
 
 builder.Services.AddCors(options =>
 {
@@ -44,6 +62,25 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.InstanceName = builder.Configuration["RedisOptions:InstanceName"];
 });
 
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
+
 var app = builder.Build();
 
 // for deploy
@@ -58,6 +95,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
@@ -69,3 +107,11 @@ using (var scope = app.Services.CreateScope())
 
 
 app.Run();
+
+// todo costmanagement
+// - appconfiguration в азуре можно там секреты сделать
+// - helm charts в кубернетис (как обычно деплоится)
+// + аутенфикация и авторизация добавить
+// + были видны заказы только активного юзера
+// - модифицировать график
+// + убрать вторую кнопку New Order

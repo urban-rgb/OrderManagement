@@ -82,14 +82,14 @@ public class OrderService(
         }
     }
 
-    public async Task<Result<OrderResponse>> CreateOrderAsync(CreateOrderRequest request)
+    public async Task<Result<OrderResponse>> CreateOrderAsync(CreateOrderRequest request, Guid userId)
     {
         try
         {
             var order = new Order
             {
                 Id = Guid.NewGuid(),
-                UserId = request.UserId,
+                UserId = userId,
                 Status = OrderStatus.Pending,
                 Products = request.Products,
                 ShippingAddress = request.ShippingAddress,

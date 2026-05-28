@@ -19,23 +19,6 @@ public class OrderServiceTests : IDisposable
     private readonly IMapper _mapper;
     private readonly TimeProvider _timeProvider = TimeProvider.System;
 
-    // todo: fix mapper error
-    /*public OrderServiceTests()
-    {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new AppDbContext(options);
-        _context.Database.EnsureCreated();
-
-        _cacheMock.Setup(x => x.GetAsync<IEnumerable<OrderResponse>>(It.IsAny<string>()))
-                  .ReturnsAsync((IEnumerable<OrderResponse>)null!);
-
-        var config = new TypeAdapterConfig();
-        new OrderMapper().Register(config);
-        _mapper = new Mapper(config);
-    }*/
-
     private OrderService CreateService() =>
         new(_context, _cacheMock.Object, _loggerMock.Object, _timeProvider, _mapper);
 
@@ -43,7 +26,7 @@ public class OrderServiceTests : IDisposable
     public async Task GetOrder_IfInCache_ShouldReturnFromCache()
     {
         var orderId = Guid.NewGuid();
-        var cachedOrder = new OrderResponse(orderId, "Pending", "Phone", "Street", 100m, DateTime.UtcNow);
+        var cachedOrder = new OrderResponse(orderId, Guid.NewGuid(), "Pending", "Phone", "Street", 100m, DateTime.UtcNow);
         _cacheMock.Setup(c => c.GetAsync<OrderResponse>(It.IsAny<string>())).ReturnsAsync(cachedOrder);
 
         var result = await CreateService().GetOrderAsync(orderId);
@@ -79,10 +62,10 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task CreateOrder_ValidRequest_ShouldSaveToDbAndInvalidateList()
     {
-        var request = new CreateOrderRequest(Guid.NewGuid(), "Laptop", "NY", 1500m);
+        var request = new CreateOrderRequest("Laptop", "NY", 1500m);
         _cacheMock.Setup(x => x.GetStringAsync(It.IsAny<string>())).ReturnsAsync("1");
 
-        var result = await CreateService().CreateOrderAsync(request);
+        var result = await CreateService().CreateOrderAsync(request, Guid.NewGuid());
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, await _context.Orders.CountAsync());

@@ -1,16 +1,16 @@
 <header class="navbar">
   <div class="navbar-inner">
-    <a routerLink="/orders" class="logo">
+    <a routerLink="/" class="logo">
       <span class="logo-mark">◆</span>
       <span class="logo-text">Orders</span>
     </a>
     <nav class="nav-links">
-      <a routerLink="/orders" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
-        All Orders
-      </a>
-      <a routerLink="/orders/new" routerLinkActive="active" class="nav-link nav-cta">
-        + New Order
-      </a>
+      @if (isLoggedIn()) {
+        <a routerLink="/orders" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
+          All Orders
+        </a>
+        <button class="btn btn-ghost btn-sm" (click)="logout()">Logout</button>
+      }
     </nav>
   </div>
 </header>

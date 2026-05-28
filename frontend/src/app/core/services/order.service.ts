@@ -11,7 +11,6 @@ export class OrderService {
 
   getOrders(params: OrderListParams = {}): Observable<OrderResponse[]> {
     let httpParams = new HttpParams();
-    if (params.userId) httpParams = httpParams.set('userId', params.userId);
     if (params.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
     if (params.isDescending !== undefined) httpParams = httpParams.set('isDescending', String(params.isDescending));
     if (params.page) httpParams = httpParams.set('page', String(params.page));

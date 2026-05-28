@@ -11,7 +11,7 @@ public interface IOrderService
     /// </summary>
     /// <param name="request">Data required to create the order.</param>
     /// <returns>The details of the newly created order.</returns>
-    Task<Result<OrderResponse>> CreateOrderAsync(CreateOrderRequest request);
+    Task<Result<OrderResponse>> CreateOrderAsync(CreateOrderRequest request, Guid userId);
 
     /// <summary>
     /// Retrieves a specific order by its unique identifier.
