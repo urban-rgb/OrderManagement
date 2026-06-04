@@ -109,9 +109,17 @@ using (var scope = app.Services.CreateScope())
 app.Run();
 
 // todo costmanagement
+// - роль в енам (юзер, админ)
 // - appconfiguration в азуре можно там секреты сделать
 // - helm charts в кубернетис (как обычно деплоится)
+// - arm template vs bicep tp - посмотреть что это
 // + аутенфикация и авторизация добавить
 // + были видны заказы только активного юзера
-// - модифицировать график
+// + модифицировать график
 // + убрать вторую кнопку New Order
+
+// - одинаковые переменные в парс. проекте - посмотреть как можно ещё решить кроме моего способа
+// - убрать .идеа
+// - внести новые функции в приложение, продолжение старых
+
+//https://portal.azure.com/#@pm.szczecin.pl/resource/subscriptions/8be30bba-8591-47de-8d9f-0bb558646e14/resourceGroups/orders-rg/exporttemplate_arm

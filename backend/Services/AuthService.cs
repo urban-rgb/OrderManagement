@@ -27,7 +27,7 @@ public class AuthService(
                 Id = Guid.NewGuid(),
                 Email = request.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                Role = "User"
+                Role = UserRole.User
             };
 
             context.Users.Add(user);
@@ -70,7 +70,7 @@ public class AuthService(
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role)
+            new Claim(ClaimTypes.Role, user.Role.ToString())
         };
 
         var token = new JwtSecurityToken(
