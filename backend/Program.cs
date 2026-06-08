@@ -9,11 +9,12 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Text;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // for deploy
-builder.Services.AddHealthChecks(); 
+builder.Services.AddHealthChecks();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -63,6 +64,7 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -77,7 +79,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+            RoleClaimType = "role",
+            NameClaimType = JwtRegisteredClaimNames.Sub
         };
     });
 
@@ -102,24 +106,10 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    if (db.Database.IsRelational())
+        db.Database.Migrate();
 }
 
 
 app.Run();
 
-// todo costmanagement
-// - роль в енам (юзер, админ)
-// - appconfiguration в азуре можно там секреты сделать
-// - helm charts в кубернетис (как обычно деплоится)
-// - arm template vs bicep tp - посмотреть что это
-// + аутенфикация и авторизация добавить
-// + были видны заказы только активного юзера
-// + модифицировать график
-// + убрать вторую кнопку New Order
-
-// - одинаковые переменные в парс. проекте - посмотреть как можно ещё решить кроме моего способа
-// - убрать .идеа
-// - внести новые функции в приложение, продолжение старых
-
-//https://portal.azure.com/#@pm.szczecin.pl/resource/subscriptions/8be30bba-8591-47de-8d9f-0bb558646e14/resourceGroups/orders-rg/exporttemplate_arm

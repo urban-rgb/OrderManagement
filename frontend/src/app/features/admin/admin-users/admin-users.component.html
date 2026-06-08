@@ -1,0 +1,65 @@
+<div class="admin-header">
+  <h1>Users</h1>
+</div>
+
+<div class="search-bar">
+  <input class="form-control" type="text"
+    [ngModel]="searchEmail()" (ngModelChange)="searchEmail.set($event)"
+    placeholder="Search by email…" />
+</div>
+
+@if (loading()) {
+  <div class="center"><div class="spinner"></div></div>
+}
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (!loading() && !error()) {
+  @if (users().length === 0) {
+    <div class="empty-state">
+      <div class="empty-state-icon">👤</div>
+      <p>No users found</p>
+    </div>
+  } @else {
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>ID</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users(); track user.id) {
+            <tr>
+              <td>{{ user.email }}</td>
+              <td class="mono id-cell">{{ user.id | slice:0:8 }}…</td>
+              <td>
+                <div class="role-cell">
+                  <select class="form-control form-control-sm"
+                    [ngModel]="user.selectedRole" (ngModelChange)="setSelectedRole(user.id, $event)">
+                    @for (r of roles; track r.value) {
+                      <option [ngValue]="r.value">{{ r.label }}</option>
+                    }
+                  </select>
+                  <button class="btn btn-ghost btn-sm" (click)="saveRole(user.id)" [disabled]="user.saving">
+                    @if (user.saving) { <span class="spinner spinner-xs"></span> } @else { Save }
+                  </button>
+                </div>
+              </td>
+              <td>
+                <button class="btn btn-danger btn-sm" (click)="deleteUser(user.id, user.email)" [disabled]="user.deleting">
+                  @if (user.deleting) { <span class="spinner spinner-xs"></span> } @else { Delete }
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}

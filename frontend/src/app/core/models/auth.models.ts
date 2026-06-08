@@ -12,3 +12,5 @@ export interface AuthResponse {
   token: string;
   expiresAt: string;
 }
+
+export type UserRole = 'User' | 'Admin';

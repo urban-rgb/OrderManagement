@@ -2,9 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: orders-frontend
-  namespace: orders
+  namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.frontend.replicas }}
   selector:
     matchLabels:
       app: orders-frontend
@@ -15,13 +15,13 @@ spec:
     spec:
       containers:
         - name: orders-frontend
-          image: ordersacr001.azurecr.io/orders-frontend:latest
+          image: {{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}
           ports:
-            - containerPort: 80
+            - containerPort: {{ .Values.frontend.port }}
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: {{ .Values.frontend.port }}
             initialDelaySeconds: 5
             periodSeconds: 5
 ---
@@ -29,11 +29,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: orders-frontend
-  namespace: orders
+  namespace: {{ .Values.namespace }}
 spec:
   selector:
     app: orders-frontend
   ports:
-    - port: 80
-      targetPort: 80
+    - port: {{ .Values.frontend.port }}
+      targetPort: {{ .Values.frontend.port }}
   type: ClusterIP

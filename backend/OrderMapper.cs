@@ -8,6 +8,7 @@ public class OrderMapper : IRegister
 {
     public void Register(TypeAdapterConfig config)
     {
+        config.NewConfig<OrderItem, OrderItemResponse>();
         config.NewConfig<Order, OrderResponse>()
             .Map(dest => dest.Status, src => src.Status.ToString());
     }

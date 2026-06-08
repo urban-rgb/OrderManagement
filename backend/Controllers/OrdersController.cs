@@ -9,8 +9,8 @@ namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
-public class OrdersController(IOrderService orderService) : ControllerBase
+[Authorize(Roles = "User")]
+public class OrdersController(IOrderService orderService) : BaseApiController
 {
     [HttpPost]
     public async Task<ActionResult<OrderResponse>> Create(CreateOrderRequest request)
@@ -80,18 +80,4 @@ public class OrdersController(IOrderService orderService) : ControllerBase
 
     private Guid GetCurrentUserId() =>
         Guid.Parse(User.FindFirstValue("sub")!);
-
-    private ActionResult HandleResult<T>(Result<T> result)
-    {
-        if (result.IsSuccess)
-            return result.Value is bool || result.Value == null ? NoContent() : Ok(result.Value);
-
-        return result.ErrorType switch
-        {
-            ErrorType.NotFound => NotFound(new { error = result.ErrorMessage }),
-            ErrorType.Conflict => Conflict(new { error = result.ErrorMessage }),
-            ErrorType.Validation => BadRequest(new { error = result.ErrorMessage }),
-            _ => StatusCode(500, new { error = result.ErrorMessage })
-        };
-    }
 }

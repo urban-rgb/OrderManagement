@@ -55,3 +55,45 @@ form {
   height: 14px;
   border-width: 2px;
 }
+
+.items-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.item-fields {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 8px;
+  flex: 1;
+}
+
+.remove-btn {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.total-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}

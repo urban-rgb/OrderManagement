@@ -14,6 +14,7 @@ export class NavbarComponent {
   private readonly router = inject(Router);
 
   readonly isLoggedIn = this.authService.isAuthenticated;
+  readonly isAdmin = this.authService.isAdmin;
 
   logout(): void {
     this.authService.logout();

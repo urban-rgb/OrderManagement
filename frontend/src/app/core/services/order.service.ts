@@ -22,7 +22,7 @@ export class OrderService {
     return this.http.get<OrderResponse>(`${this.base}/${id}`);
   }
 
-  createOrder(request: CreateOrderRequest): Observable<OrderResponse> {
+    createOrder(request: CreateOrderRequest): Observable<OrderResponse> {
     return this.http.post<OrderResponse>(this.base, request);
   }
 

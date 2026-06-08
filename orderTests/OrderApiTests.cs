@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Caching.Distributed;
@@ -33,6 +34,12 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
 
                 services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase(_dbName));
                 services.AddDistributedMemoryCache();
+
+                services.AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = "Test";
+                    options.DefaultChallengeScheme = "Test";
+                }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
             });
         });
         _client = _factory.CreateClient();
@@ -41,15 +48,15 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task CreateOrder_EmptyAddress_ReturnsBadRequest()
     {
-        var request = new CreateOrderRequest("Products", string.Empty, 100m);
+        var request = new CreateOrderRequest(new List<OrderItemRequest> { new("Item", 1, 10m) }, string.Empty);
         var response = await _client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
-    public async Task CreateOrder_EmptyProducts_ReturnsBadRequest()
+    public async Task CreateOrder_EmptyItems_ReturnsBadRequest()
     {
-        var request = new CreateOrderRequest(string.Empty, "Address", 100m);
+        var request = new CreateOrderRequest(new List<OrderItemRequest>(), "Address");
         var response = await _client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -62,9 +69,9 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task CreateOrder_NegativeAmount_ReturnsBadRequest()
+    public async Task CreateOrder_NegativeUnitPrice_ReturnsBadRequest()
     {
-        var request = new CreateOrderRequest("Item", "Address", -10m);
+        var request = new CreateOrderRequest(new List<OrderItemRequest> { new("Item", 1, -10m) }, "Address");
         var response = await _client.PostAsJsonAsync("/api/orders", request);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -76,7 +83,15 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Orders.Add(new Order { Id = orderId, Status = OrderStatus.Pending, ShippingAddress = "Old", Products = "P", CreatedAt = DateTime.UtcNow });
+            db.Orders.Add(new Order
+            {
+                Id = orderId,
+                UserId = TestAuthHandler.TestUserId,
+                Status = OrderStatus.Pending,
+                ShippingAddress = "Old",
+                Items = new List<OrderItem> { new() { Id = Guid.NewGuid(), Name = "P", Quantity = 1, UnitPrice = 1m } },
+                CreatedAt = DateTime.UtcNow
+            });
             await db.SaveChangesAsync();
         }
 
@@ -93,7 +108,15 @@ public class OrderApiTests : IClassFixture<WebApplicationFactory<Program>>
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Orders.Add(new Order { Id = orderId, Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
+            db.Orders.Add(new Order
+            {
+                Id = orderId,
+                UserId = TestAuthHandler.TestUserId,
+                Status = OrderStatus.Delivered,
+                Items = new List<OrderItem> { new() { Id = Guid.NewGuid(), Name = "P", Quantity = 1, UnitPrice = 1m } },
+                ShippingAddress = "A",
+                CreatedAt = DateTime.UtcNow
+            });
             await db.SaveChangesAsync();
         }
 

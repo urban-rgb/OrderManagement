@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using backend.Data;
@@ -19,26 +19,44 @@ public class OrderServiceTests : IDisposable
     private readonly IMapper _mapper;
     private readonly TimeProvider _timeProvider = TimeProvider.System;
 
+    public OrderServiceTests()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        _context = new AppDbContext(options);
+
+        TypeAdapterConfig.GlobalSettings.Scan(typeof(backend.OrderMapper).Assembly);
+        _mapper = new Mapper(TypeAdapterConfig.GlobalSettings);
+
+        _cacheMock.Setup(c => c.GetAsync<IEnumerable<OrderResponse>>(It.IsAny<string>()))
+                  .ReturnsAsync((IEnumerable<OrderResponse>?)null);
+    }
+
     private OrderService CreateService() =>
         new(_context, _cacheMock.Object, _loggerMock.Object, _timeProvider, _mapper);
+
+    private static List<OrderItem> OneItem() =>
+        new() { new OrderItem { Id = Guid.NewGuid(), Name = "P", Quantity = 1, UnitPrice = 1m } };
 
     [Fact]
     public async Task GetOrder_IfInCache_ShouldReturnFromCache()
     {
         var orderId = Guid.NewGuid();
-        var cachedOrder = new OrderResponse(orderId, Guid.NewGuid(), "Pending", "Phone", "Street", 100m, DateTime.UtcNow);
+        var cachedOrder = new OrderResponse(orderId, Guid.NewGuid(), "Pending",
+            new List<OrderItemResponse> { new(Guid.NewGuid(), "Phone", 1, 100m) }, "Street", 100m, DateTime.UtcNow);
         _cacheMock.Setup(c => c.GetAsync<OrderResponse>(It.IsAny<string>())).ReturnsAsync(cachedOrder);
 
         var result = await CreateService().GetOrderAsync(orderId);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(cachedOrder.Products, result.Value!.Products);
+        Assert.Equal(cachedOrder.Items, result.Value!.Items);
     }
 
     [Fact]
     public async Task GetOrder_NotInCache_ShouldFetchFromDbAndCacheIt()
     {
-        var order = new Order { Id = Guid.NewGuid(), Products = "P", ShippingAddress = "A", UserId = Guid.NewGuid() };
+        var order = new Order { Id = Guid.NewGuid(), Items = OneItem(), ShippingAddress = "A", UserId = Guid.NewGuid() };
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
@@ -62,7 +80,9 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task CreateOrder_ValidRequest_ShouldSaveToDbAndInvalidateList()
     {
-        var request = new CreateOrderRequest("Laptop", "NY", 1500m);
+        var request = new CreateOrderRequest(
+            new List<OrderItemRequest> { new("Laptop", 1, 1500m) },
+            "NY");
         _cacheMock.Setup(x => x.GetStringAsync(It.IsAny<string>())).ReturnsAsync("1");
 
         var result = await CreateService().CreateOrderAsync(request, Guid.NewGuid());
@@ -77,7 +97,7 @@ public class OrderServiceTests : IDisposable
     public async Task UpdateAddress_WhenStatusIsPending_ShouldSucceedAndInvalidateCache()
     {
         var userId = Guid.NewGuid();
-        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, ShippingAddress = "Old", Products = "P", UserId = userId };
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, ShippingAddress = "Old", Items = OneItem(), UserId = userId };
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
         _cacheMock.Setup(x => x.GetStringAsync(It.IsAny<string>())).ReturnsAsync("1");
@@ -91,7 +111,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task UpdateAddress_WhenStatusIsPending_ShouldSucceed()
     {
-        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, ShippingAddress = "Old", Products = "P" };
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, ShippingAddress = "Old", Items = OneItem() };
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
@@ -112,7 +132,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task CancelOrder_WhenStatusIsDelivered_ReturnsConflict()
     {
-        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A" };
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Delivered, Items = OneItem(), ShippingAddress = "A" };
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
@@ -125,7 +145,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task CancelOrder_WhenAlreadyCancelled_ReturnsConflict()
     {
-        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Cancelled, Products = "P", ShippingAddress = "A" };
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Cancelled, Items = OneItem(), ShippingAddress = "A" };
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
@@ -138,8 +158,8 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task GetOrders_SortByAmountDescending_ReturnsCorrectSequence()
     {
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), TotalAmount = 10, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), TotalAmount = 100, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), TotalAmount = 10, Items = OneItem(), ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), TotalAmount = 100, Items = OneItem(), ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
         await _context.SaveChangesAsync();
 
         var result = await CreateService().GetOrdersAsync(1, 10, sortBy: "amount", isDescending: true);
@@ -151,8 +171,8 @@ public class OrderServiceTests : IDisposable
     public async Task GetOrders_FilterByUserId_ReturnsOnlyUserOrders()
     {
         var userId = Guid.NewGuid();
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), UserId = userId, Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), UserId = Guid.NewGuid(), Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), UserId = userId, Items = OneItem(), ShippingAddress = "A", CreatedAt = DateTime.UtcNow });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), UserId = Guid.NewGuid(), Items = OneItem(), ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(1) });
         await _context.SaveChangesAsync();
 
         var result = await CreateService().GetOrdersAsync(1, 10, userId: userId);
@@ -165,7 +185,7 @@ public class OrderServiceTests : IDisposable
     {
         for (int i = 0; i < 15; i++)
         {
-            _context.Orders.Add(new Order { Id = Guid.NewGuid(), Products = "P", ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(i) });
+            _context.Orders.Add(new Order { Id = Guid.NewGuid(), Items = OneItem(), ShippingAddress = "A", CreatedAt = DateTime.UtcNow.AddMinutes(i) });
         }
         await _context.SaveChangesAsync();
 
@@ -177,7 +197,7 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task UpdateAddress_WhenStatusIsAtLimit_ReturnsConflict()
     {
-        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.InTransit, Products = "P", ShippingAddress = "A" };
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.InTransit, Items = OneItem(), ShippingAddress = "A" };
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
@@ -190,8 +210,8 @@ public class OrderServiceTests : IDisposable
     [Fact]
     public async Task GetOrders_SortByStatusAscending_ReturnsCorrectSequence()
     {
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), Status = OrderStatus.Delivered, Products = "P", ShippingAddress = "A" });
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, Products = "P", ShippingAddress = "A" });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), Status = OrderStatus.Delivered, Items = OneItem(), ShippingAddress = "A" });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending, Items = OneItem(), ShippingAddress = "A" });
         await _context.SaveChangesAsync();
 
         var result = await CreateService().GetOrdersAsync(1, 10, sortBy: "status", isDescending: false);
@@ -211,8 +231,8 @@ public class OrderServiceTests : IDisposable
     {
         var oldDate = DateTime.UtcNow.AddDays(-1);
         var newDate = DateTime.UtcNow;
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), CreatedAt = oldDate, Products = "P", ShippingAddress = "A" });
-        _context.Orders.Add(new Order { Id = Guid.NewGuid(), CreatedAt = newDate, Products = "P", ShippingAddress = "A" });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), CreatedAt = oldDate, Items = OneItem(), ShippingAddress = "A" });
+        _context.Orders.Add(new Order { Id = Guid.NewGuid(), CreatedAt = newDate, Items = OneItem(), ShippingAddress = "A" });
         await _context.SaveChangesAsync();
 
         var result = await CreateService().GetOrdersAsync(1, 10);

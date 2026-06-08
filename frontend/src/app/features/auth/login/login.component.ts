@@ -35,7 +35,7 @@ export class LoginComponent {
     this.error = null;
     const { email, password } = this.form.getRawValue();
     this.authService.login({ email: email!, password: password! }).subscribe({
-      next: () => this.router.navigate(['/orders']),
+      next: () => this.router.navigate(this.authService.isAdmin() ? ['/admin/orders'] : ['/orders']),
       error: (err) => {
         this.error = err.error?.error ?? 'Login failed. Check your credentials.';
         this.loading = false;

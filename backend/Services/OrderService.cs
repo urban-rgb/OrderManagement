@@ -1,4 +1,4 @@
-﻿using Mapster;
+using Mapster;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
@@ -24,7 +24,7 @@ public class OrderService(
             var cachedOrder = await cache.GetAsync<OrderResponse>(cacheKey);
             if (cachedOrder != null) return Result<OrderResponse>.Success(cachedOrder);
 
-            var order = await context.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == id);
+            var order = await context.Orders.AsNoTracking().Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id);
             if (order == null) return Result<OrderResponse>.Failure("Order not found", ErrorType.NotFound);
 
             var response = mapper.Map<OrderResponse>(order);
@@ -86,14 +86,22 @@ public class OrderService(
     {
         try
         {
+            var items = request.Items.Select(i => new OrderItem
+            {
+                Id = Guid.NewGuid(),
+                Name = i.Name,
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice
+            }).ToList();
+
             var order = new Order
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 Status = OrderStatus.Pending,
-                Products = request.Products,
                 ShippingAddress = request.ShippingAddress,
-                TotalAmount = request.TotalAmount,
+                Items = items,
+                TotalAmount = items.Sum(i => i.Quantity * i.UnitPrice),
                 CreatedAt = timeProvider.GetUtcNow().UtcDateTime
             };
 
@@ -110,20 +118,23 @@ public class OrderService(
         }
     }
 
-    public async Task<Result<IEnumerable<OrderResponse>>> GetOrdersAsync(int page, int limit, Guid? userId = null, string? sortBy = null, bool isDescending = true)
+    public async Task<Result<IEnumerable<OrderResponse>>> GetOrdersAsync(int page, int limit, Guid? userId = null, string? sortBy = null, bool isDescending = true, OrderStatus? status = null, DateTime? dateFrom = null, DateTime? dateTo = null)
     {
         try
         {
             string versionKey = userId.HasValue ? $"orders:version:{userId}" : "orders:version:all";
             var version = await cache.GetStringAsync(versionKey) ?? "1";
 
-            var cacheKey = $"orders:list:{version}:{userId}:{page}:{limit}:{sortBy}:{isDescending}";
+            var cacheKey = $"orders:list:{version}:{userId}:{page}:{limit}:{sortBy}:{isDescending}:{(int?)status}:{dateFrom?.Date:yyyyMMdd}:{dateTo?.Date:yyyyMMdd}";
 
             var cachedData = await cache.GetAsync<IEnumerable<OrderResponse>>(cacheKey);
             if (cachedData != null) return Result<IEnumerable<OrderResponse>>.Success(cachedData);
 
             var query = context.Orders.AsNoTracking();
             if (userId.HasValue) query = query.Where(o => o.UserId == userId.Value);
+            if (status.HasValue) query = query.Where(o => o.Status == status.Value);
+            if (dateFrom.HasValue) query = query.Where(o => o.CreatedAt >= dateFrom.Value);
+            if (dateTo.HasValue) query = query.Where(o => o.CreatedAt < dateTo.Value.AddDays(1));
 
             query = sortBy?.ToLower() switch
             {
@@ -133,7 +144,17 @@ public class OrderService(
             };
 
             var entities = await query.Skip((page - 1) * limit).Take(limit).ToListAsync();
-            var response = mapper.Map<IEnumerable<OrderResponse>>(entities);
+
+            if (entities.Count > 0)
+            {
+                var ids = entities.Select(o => o.Id).ToList();
+                var items = await context.OrderItems.AsNoTracking()
+                    .Where(i => ids.Contains(i.OrderId))
+                    .ToListAsync();
+                foreach (var order in entities)
+                    order.Items = items.Where(i => i.OrderId == order.Id).ToList();
+            }
+            IEnumerable<OrderResponse> response = mapper.Map<List<OrderResponse>>(entities);
 
             await cache.SetAsync(cacheKey, response, ListCacheExpiration);
             return Result<IEnumerable<OrderResponse>>.Success(response);
@@ -142,6 +163,59 @@ public class OrderService(
         {
             logger.LogError(ex, "Error fetching orders");
             return Result<IEnumerable<OrderResponse>>.Failure("Database error", ErrorType.Failure);
+        }
+    }
+
+    public async Task<Result<bool>> ForceUpdateStatusAsync(Guid id, OrderStatus newStatus)
+    {
+        try
+        {
+            var order = await context.Orders.FirstOrDefaultAsync(o => o.Id == id);
+            if (order == null) return Result<bool>.Failure("Order not found", ErrorType.NotFound);
+
+            order.Status = newStatus;
+            await context.SaveChangesAsync();
+            await ClearCacheAsync(id, order.UserId);
+            return Result<bool>.Success(true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error force-updating status for order {Id}", id);
+            return Result<bool>.Failure("Internal error", ErrorType.Failure);
+        }
+    }
+
+    public async Task<Result<AnalyticsResponse>> GetAnalyticsAsync()
+    {
+        try
+        {
+            var totalRevenue = await context.Orders.SumAsync(o => o.TotalAmount);
+
+            var statusGroups = await context.Orders
+                .AsNoTracking()
+                .GroupBy(o => o.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var countByStatus = statusGroups.ToDictionary(x => x.Status, x => x.Count);
+            var ordersByStatus = Enum.GetValues<OrderStatus>()
+                .Select(s => new OrderStatusCount(s.ToString(), countByStatus.GetValueOrDefault(s, 0)))
+                .ToList();
+
+            var topProducts = await context.OrderItems
+                .AsNoTracking()
+                .GroupBy(i => i.Name)
+                .Select(g => new TopProduct(g.Key, g.Sum(i => i.Quantity)))
+                .OrderByDescending(p => p.TotalQuantity)
+                .Take(10)
+                .ToListAsync();
+
+            return Result<AnalyticsResponse>.Success(new AnalyticsResponse(totalRevenue, ordersByStatus, topProducts));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error fetching analytics");
+            return Result<AnalyticsResponse>.Failure("Database error", ErrorType.Failure);
         }
     }
 

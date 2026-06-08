@@ -6,9 +6,15 @@
     </a>
     <nav class="nav-links">
       @if (isLoggedIn()) {
-        <a routerLink="/orders" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
-          All Orders
-        </a>
+        @if (isAdmin()) {
+          <a routerLink="/admin/orders" routerLinkActive="active" class="nav-link">Orders</a>
+          <a routerLink="/admin/analytics" routerLinkActive="active" class="nav-link">Analytics</a>
+          <a routerLink="/admin/users" routerLinkActive="active" class="nav-link">Users</a>
+        } @else {
+          <a routerLink="/orders" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
+            All Orders
+          </a>
+        }
         <button class="btn btn-ghost btn-sm" (click)="logout()">Logout</button>
       }
     </nav>

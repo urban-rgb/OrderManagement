@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { OrderService } from '../../core/services/order.service';
 
@@ -20,14 +20,44 @@ export class OrderFormComponent {
   error: string | null = null;
 
   form = this.fb.group({
-    products: ['', Validators.required],
     shippingAddress: ['', Validators.required],
-    totalAmount: [null as number | null, [Validators.required, Validators.min(0.01)]]
+    items: this.fb.array([this.createItem()])
   });
+
+  get items(): FormArray {
+    return this.form.get('items') as FormArray;
+  }
+
+  private createItem() {
+    return this.fb.group({
+      name: ['', Validators.required],
+      quantity: [1, [Validators.required, Validators.min(1)]],
+      unitPrice: [null as number | null, [Validators.required, Validators.min(0.01)]]
+    });
+  }
+
+  addItem(): void {
+    this.items.push(this.createItem());
+  }
+
+  removeItem(index: number): void {
+    if (this.items.length > 1) this.items.removeAt(index);
+  }
 
   isInvalid(field: string): boolean {
     const control = this.form.get(field);
     return !!(control?.invalid && control?.touched);
+  }
+
+  isItemInvalid(index: number, field: string): boolean {
+    const control = this.items.at(index).get(field);
+    return !!(control?.invalid && control?.touched);
+  }
+
+  computedTotal(): number {
+    return this.items.controls.reduce((sum, ctrl) => {
+      return sum + (ctrl.get('quantity')?.value ?? 0) * (ctrl.get('unitPrice')?.value ?? 0);
+    }, 0);
   }
 
   submit(): void {
@@ -39,9 +69,12 @@ export class OrderFormComponent {
     const value = this.form.getRawValue();
 
     this.orderService.createOrder({
-      products: value.products!,
       shippingAddress: value.shippingAddress!,
-      totalAmount: value.totalAmount!
+      items: value.items!.map(i => ({
+        name: i.name!,
+        quantity: i.quantity!,
+        unitPrice: i.unitPrice!
+      }))
     }).subscribe({
       next: (order) => this.router.navigate(['/orders', order.id]),
       error: (err) => {
