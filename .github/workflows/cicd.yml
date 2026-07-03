@@ -1,0 +1,74 @@
+name: CI/CD
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ACR: ordersacr26823
+  ACR_LOGIN_SERVER: ordersacr26823.azurecr.io
+  RESOURCE_GROUP: orders-rg
+  AKS_CLUSTER: orders-aks
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      - run: dotnet test --no-restore --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura --collect:"XPlat Code Coverage"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: "**/TestResults/**/coverage.cobertura.xml"
+
+  build-push:
+    needs: build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - run: az acr login --name $ACR
+      - run: |
+          docker build -t $ACR_LOGIN_SERVER/orders-api:${{ github.sha }} ./backend
+          docker push $ACR_LOGIN_SERVER/orders-api:${{ github.sha }}
+      - run: |
+          docker build -t $ACR_LOGIN_SERVER/orders-frontend:${{ github.sha }} ./frontend
+          docker push $ACR_LOGIN_SERVER/orders-frontend:${{ github.sha }}
+
+  deploy:
+    needs: build-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - run: az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER --overwrite-existing
+      - run: |
+          sed -i "s|orders-api:v1|orders-api:${{ github.sha }}|" k8s/backend.yaml
+          sed -i "s|orders-frontend:v1|orders-frontend:${{ github.sha }}|" k8s/frontend.yaml
+      - run: kubectl apply -f k8s/backend.yaml -f k8s/frontend.yaml
+      - run: |
+          kubectl rollout status deployment/orders-api --timeout=180s
+          kubectl rollout status deployment/orders-frontend --timeout=180s
