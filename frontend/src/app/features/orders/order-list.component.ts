@@ -20,7 +20,6 @@ export class OrderListComponent implements OnInit {
   loading = signal(false);
   error = signal<string | null>(null);
 
-  userId = '';
   sortBy: OrderListParams['sortBy'] = 'createdAt';
   isDescending = true;
   page = 1;
@@ -39,7 +38,6 @@ export class OrderListComponent implements OnInit {
       page: this.page,
       limit: this.limit
     };
-    if (this.userId.trim()) params.userId = this.userId.trim();
 
     this.orderService.getOrders(params).subscribe({
       next: (data) => { this.orders.set(data); this.loading.set(false); },

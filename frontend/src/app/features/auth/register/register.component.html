@@ -1,0 +1,53 @@
+<div class="auth-container">
+  <div class="auth-header">
+    <h1>Create Account</h1>
+    <p class="auth-subtitle">Register to start managing orders</p>
+  </div>
+
+  <div class="card auth-card">
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input
+          class="form-control"
+          [class.is-invalid]="isInvalid('email')"
+          formControlName="email"
+          type="email"
+          placeholder="you@example.com"
+          autocomplete="email"
+        />
+        @if (isInvalid('email')) {
+          <span class="form-error">Valid email required</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input
+          class="form-control"
+          [class.is-invalid]="isInvalid('password')"
+          formControlName="password"
+          type="password"
+          placeholder="Min. 8 characters"
+          autocomplete="new-password"
+        />
+        @if (isInvalid('password')) {
+          <span class="form-error">Minimum 8 characters required</span>
+        }
+      </div>
+
+      @if (error) {
+        <div class="error-banner">{{ error }}</div>
+      }
+
+      <button type="submit" class="btn btn-primary btn-full" [disabled]="loading">
+        @if (loading) { <span class="spinner spinner-sm"></span> }
+        Create Account
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Already have an account? <a routerLink="/auth/login">Sign In</a>
+    </div>
+  </div>
+</div>

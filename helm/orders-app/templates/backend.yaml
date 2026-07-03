@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: orders-api
+  template:
+    metadata:
+      labels:
+        app: orders-api
+    spec:
+      serviceAccountName: orders-service-account
+      containers:
+        - name: orders-api
+          image: {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
+          ports:
+            - containerPort: {{ .Values.backend.port }}
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.backend.env.aspnetcoreEnvironment | quote }}
+            - name: ASPNETCORE_URLS
+              value: "http://+:{{ .Values.backend.port }}"
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: orders-secrets
+                  key: CONNECTION_STRING
+            - name: ConnectionStrings__Redis
+              valueFrom:
+                secretKeyRef:
+                  name: orders-secrets
+                  key: REDIS_CONNECTION
+            - name: Jwt__Key
+              valueFrom:
+                secretKeyRef:
+                  name: orders-secrets
+                  key: JWT_KEY
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: orders-keyvault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-api
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: orders-api
+  ports:
+    - port: {{ .Values.backend.port }}
+      targetPort: {{ .Values.backend.port }}
+  type: ClusterIP

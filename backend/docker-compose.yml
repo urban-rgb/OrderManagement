@@ -28,7 +28,7 @@ services:
     networks:
       - orders_network
 
-  app:
+  orders-api:
     build:
       context: .
       dockerfile: Dockerfile

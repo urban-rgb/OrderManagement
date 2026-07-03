@@ -1,0 +1,54 @@
+<div class="admin-header">
+  <h1>Analytics</h1>
+</div>
+
+@if (loading()) {
+  <div class="center"><div class="spinner"></div></div>
+}
+
+@if (error()) {
+  <div class="error-banner">{{ error() }}</div>
+}
+
+@if (analytics(); as a) {
+  <div class="revenue-card card">
+    <div class="card-label">Total Revenue</div>
+    <div class="revenue-value mono">${{ a.totalRevenue | number:'1.2-2' }}</div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-label">Orders by Status</div>
+      <div class="bar-chart">
+        @for (s of a.ordersByStatus; track s.status) {
+          <div class="bar-row">
+            <span class="bar-label">{{ s.status }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" [style.width]="barWidth(s.count)" [style.background]="colorFor(s.status)"></div>
+            </div>
+            <span class="bar-value mono">{{ s.count }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Top 10 Products</div>
+      @if (a.topProducts.length === 0) {
+        <p class="empty-msg">No product data yet</p>
+      } @else {
+        <div class="bar-chart">
+          @for (p of a.topProducts; track p.name) {
+            <div class="bar-row">
+              <span class="bar-label">{{ p.name }}</span>
+              <div class="bar-track">
+                <div class="bar-fill product-bar" [style.width]="productBarWidth(p.totalQuantity)"></div>
+              </div>
+              <span class="bar-value mono">{{ p.totalQuantity }}</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}

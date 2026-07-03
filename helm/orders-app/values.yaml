@@ -1,0 +1,41 @@
+namespace: orders
+
+registry: ordersacr001.azurecr.io
+
+backend:
+  image:
+    repository: ordersacr001.azurecr.io/orders-api
+    tag: latest
+  replicas: 1
+  port: 8080
+  env:
+    aspnetcoreEnvironment: Production
+
+frontend:
+  image:
+    repository: ordersacr001.azurecr.io/orders-frontend
+    tag: latest
+  replicas: 1
+  port: 80
+
+postgres:
+  image: postgres:16
+  port: 5432
+  storage: 5Gi
+  storageClassName: managed-csi
+
+redis:
+  image: redis:7.2
+  port: 6379
+
+secrets:
+  # These values are overridden in production via Key Vault / CI
+  postgresUser: "user"
+  postgresPassword: "password"
+  postgresDb: "orders_db"
+  connectionString: "Host=orders-db;Database=orders_db;Username=user;Password=password"
+  redisConnection: "orders-redis:6379"
+  jwtKey: "change-me-in-production"
+
+ingress:
+  className: nginx

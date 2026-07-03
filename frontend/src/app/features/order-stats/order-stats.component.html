@@ -1,55 +1,98 @@
 @if (slices.length > 0) {
   <div class="stats-card">
     <h2 class="stats-title">Order Statistics</h2>
-    <div class="stats-body">
+    <div class="stats-grid">
 
-      <div class="donut-wrap">
-        <svg viewBox="0 0 140 140" class="donut-svg">
-          @for (slice of slices; track slice.status) {
-            <circle
-              class="donut-ring"
-              [attr.r]="r"
-              [attr.cx]="cx"
-              [attr.cy]="cy"
-              fill="transparent"
-              [attr.stroke]="slice.color"
-              stroke-width="20"
-              [attr.stroke-dasharray]="getStrokeDasharray(slice.percent)"
-              [attr.stroke-dashoffset]="getStrokeDashoffset(slice.offset)"
-              [style.opacity]="hovered === null || hovered === slice.status ? 1 : 0.25"
-              (mouseenter)="hovered = slice.status"
-              (mouseleave)="hovered = null"
-            />
-          }
-        </svg>
-        <div class="donut-center">
-          @if (hoveredSlice) {
-            <span class="donut-count">{{ hoveredSlice.count }}</span>
-            <span class="donut-label">{{ hoveredSlice.status }}</span>
-          } @else {
-            <span class="donut-count">{{ total }}</span>
-            <span class="donut-label">total</span>
-          }
+      <div class="panel">
+        <div class="panel-label">Status</div>
+        <div class="donut-panel">
+          <div class="donut-wrap">
+            <svg viewBox="0 0 140 140" class="donut-svg">
+              @for (slice of slices; track slice.status) {
+                <circle
+                  class="donut-ring"
+                  [attr.r]="r"
+                  [attr.cx]="cx"
+                  [attr.cy]="cy"
+                  fill="transparent"
+                  [attr.stroke]="slice.color"
+                  stroke-width="20"
+                  [attr.stroke-dasharray]="getStrokeDasharray(slice.percent)"
+                  [attr.stroke-dashoffset]="getStrokeDashoffset(slice.offset)"
+                  [style.opacity]="hovered === null || hovered === slice.status ? 1 : 0.25"
+                  (mouseenter)="hovered = slice.status"
+                  (mouseleave)="hovered = null"
+                />
+              }
+            </svg>
+            <div class="donut-center">
+              @if (hoveredSlice) {
+                <span class="donut-count">{{ hoveredSlice.count }}</span>
+                <span class="donut-label">{{ hoveredSlice.status }}</span>
+              } @else {
+                <span class="donut-count">{{ total }}</span>
+                <span class="donut-label">total</span>
+              }
+            </div>
+          </div>
+          <div class="legend">
+            @for (slice of slices; track slice.status) {
+              <div
+                class="legend-item"
+                [class.faded]="hovered !== null && hovered !== slice.status"
+                (mouseenter)="hovered = slice.status"
+                (mouseleave)="hovered = null"
+              >
+                <span class="legend-dot" [style.background]="slice.color"></span>
+                <span class="legend-status">{{ slice.status }}</span>
+                <span class="legend-count mono">{{ slice.count }}</span>
+                <span class="legend-bar-wrap">
+                  <span class="legend-bar" [style.width.%]="slice.percent" [style.background]="slice.color"></span>
+                </span>
+                <span class="legend-pct mono">{{ slice.percent | number:'1.0-0' }}%</span>
+              </div>
+            }
+          </div>
         </div>
       </div>
 
-      <div class="legend">
-        @for (slice of slices; track slice.status) {
-          <div
-            class="legend-item"
-            [class.faded]="hovered !== null && hovered !== slice.status"
-            (mouseenter)="hovered = slice.status"
-            (mouseleave)="hovered = null"
-          >
-            <span class="legend-dot" [style.background]="slice.color"></span>
-            <span class="legend-status">{{ slice.status }}</span>
-            <span class="legend-count mono">{{ slice.count }}</span>
-            <span class="legend-bar-wrap">
-              <span class="legend-bar" [style.width.%]="slice.percent" [style.background]="slice.color"></span>
-            </span>
-            <span class="legend-pct mono">{{ slice.percent | number:'1.0-0' }}%</span>
+      <div class="panel">
+        <div class="panel-label">Revenue by Status</div>
+        <div class="revenue-list">
+          @for (slice of revenueSlices; track slice.status) {
+            <div class="revenue-row">
+              <span class="legend-dot" [style.background]="slice.color"></span>
+              <span class="legend-status">{{ slice.status }}</span>
+              <span class="rev-bar-wrap">
+                <span class="rev-bar" [style.width.%]="slice.percent" [style.background]="slice.color"></span>
+              </span>
+              <span class="rev-amount mono">${{ slice.total | number:'1.2-2' }}</span>
+            </div>
+          }
+          <div class="revenue-total">
+            <span class="rev-total-label">Total</span>
+            <span class="rev-total-amount mono">${{ totalRevenue | number:'1.2-2' }}</span>
           </div>
-        }
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-label">Orders by Date</div>
+        <div class="timeline-wrap">
+          <div class="bars-area">
+            @for (bar of dayBars; track bar.date) {
+              <div class="bar-col">
+                <span class="bar-count mono">{{ bar.count }}</span>
+                <div class="bar-fill" [style.height.px]="bar.heightPx"></div>
+              </div>
+            }
+          </div>
+          <div class="date-row">
+            @for (bar of dayBars; track bar.date) {
+              <span class="bar-date mono">{{ formatDate(bar.date) }}</span>
+            }
+          </div>
+        </div>
       </div>
 
     </div>

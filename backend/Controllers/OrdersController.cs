@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using backend.Domain;
 using backend.Services;
@@ -7,17 +9,16 @@ namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class OrdersController(IOrderService orderService) : ControllerBase
+[Authorize(Roles = "User")]
+public class OrdersController(IOrderService orderService) : BaseApiController
 {
     [HttpPost]
     public async Task<ActionResult<OrderResponse>> Create(CreateOrderRequest request)
     {
-        var result = await orderService.CreateOrderAsync(request);
+        var result = await orderService.CreateOrderAsync(request, GetCurrentUserId());
 
         if (!result.IsSuccess)
-        {
             return HandleResult(result);
-        }
 
         return CreatedAtAction(nameof(GetById), new { id = result.Value!.Id }, result.Value);
     }
@@ -26,24 +27,38 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     public async Task<ActionResult<OrderResponse>> GetById(Guid id)
     {
         var result = await orderService.GetOrderAsync(id);
-        return HandleResult(result);
+
+        if (!result.IsSuccess)
+            return HandleResult(result);
+
+        if (result.Value!.UserId != GetCurrentUserId())
+            return Forbid();
+
+        return Ok(result.Value);
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<OrderResponse>>> GetList(
-            [FromQuery] Guid? userId,
             [FromQuery] string? sortBy,
             [FromQuery] bool isDescending = true,
             [FromQuery] int page = 1,
             [FromQuery] int limit = 10)
     {
-        var result = await orderService.GetOrdersAsync(page, limit, userId, sortBy, isDescending);
+        var result = await orderService.GetOrdersAsync(page, limit, GetCurrentUserId(), sortBy, isDescending);
         return HandleResult(result);
     }
 
     [HttpPatch("{id:guid}/address")]
     public async Task<IActionResult> UpdateAddress(Guid id, [FromBody] UpdateOrderAddressRequest request)
     {
+        var ownerCheck = await orderService.GetOrderAsync(id);
+
+        if (!ownerCheck.IsSuccess)
+            return HandleResult(ownerCheck);
+
+        if (ownerCheck.Value!.UserId != GetCurrentUserId())
+            return Forbid();
+
         var result = await orderService.UpdateAddressAsync(id, request);
         return HandleResult(result);
     }
@@ -51,23 +66,18 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     [HttpPost("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid id)
     {
+        var ownerCheck = await orderService.GetOrderAsync(id);
+
+        if (!ownerCheck.IsSuccess)
+            return HandleResult(ownerCheck);
+
+        if (ownerCheck.Value!.UserId != GetCurrentUserId())
+            return Forbid();
+
         var result = await orderService.CancelOrderAsync(id);
         return HandleResult(result);
     }
 
-    private ActionResult HandleResult<T>(Result<T> result)
-    {
-        if (result.IsSuccess)
-        {
-            return result.Value is bool || result.Value == null ? NoContent() : Ok(result.Value);
-        }
-
-        return result.ErrorType switch
-        {
-            ErrorType.NotFound => NotFound(new { error = result.ErrorMessage }),
-            ErrorType.Conflict => Conflict(new { error = result.ErrorMessage }),
-            ErrorType.Validation => BadRequest(new { error = result.ErrorMessage }),
-            _ => StatusCode(500, new { error = result.ErrorMessage })
-        };
-    }
+    private Guid GetCurrentUserId() =>
+        Guid.Parse(User.FindFirstValue("sub")!);
 }

@@ -4,12 +4,6 @@
 </div>
 
 <div class="filters">
-  <input
-    class="form-control"
-    placeholder="Filter by User ID"
-    [(ngModel)]="userId"
-    (keyup.enter)="page = 1; load()"
-  />
   <select class="form-control" [(ngModel)]="sortBy" (change)="page = 1; load()">
     <option value="createdAt">Date</option>
     <option value="amount">Amount</option>
