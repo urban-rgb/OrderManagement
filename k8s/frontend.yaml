@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-frontend
+  template:
+    metadata:
+      labels:
+        app: orders-frontend
+    spec:
+      containers:
+        - name: orders-frontend
+          image: ordersacr26823.azurecr.io/orders-frontend:v1
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-frontend
+spec:
+  selector:
+    app: orders-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: LoadBalancer
